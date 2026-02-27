@@ -1,0 +1,49 @@
+services:
+  postgres_galaxy:
+    image: postgres:18-alpine
+    container_name: postgres_galaxy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata_galaxy:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - galaxy_net
+
+  postgres_galaxy_logs:
+    image: postgres:18-alpine
+    container_name: postgres_galaxy_logs
+    environment:
+      POSTGRES_USER: ${LOGS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${LOGS_POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${LOGS_POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata_galaxy_logs:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - galaxy_net
+
+volumes:
+  pgdata_galaxy:
+  pgdata_galaxy_logs:
+
+networks:
+  galaxy_net:
