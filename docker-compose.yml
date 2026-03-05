@@ -1,7 +1,7 @@
 services:
-  postgres-galaxy:
+  postgres:
     image: postgres:18-alpine
-    container_name: postgres-galaxy
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -20,9 +20,9 @@ services:
     networks:
       - galaxy-net
 
-  postgres-galaxy-logs:
+  postgres-logs:
     image: postgres:18-alpine
-    container_name: postgres-galaxy-logs
+    container_name: postgres-logs
     environment:
       POSTGRES_USER: ${LOGS_POSTGRES_USER}
       POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
@@ -44,24 +44,48 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
+    env_file:
+      - .env
     container_name: auth-service
     depends_on:
-      - postgres-galaxy
+      auth-redis:
+        condition: service_healthy
+      postgres:
+        condition: service_started
     environment:
-      POSTGRES_HOST: postgres-galaxy
+      POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+
+      REDIS_HOST: auth-redis
     ports:
       - "${AUTH_PORT}:8080"
     restart: unless-stopped
     networks:
       - galaxy-net
 
+  auth-redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - galaxy-net
+
 volumes:
   pgdata-galaxy:
   pgdata-galaxy-logs:
+  redis_data:
 
 networks:
   galaxy-net:

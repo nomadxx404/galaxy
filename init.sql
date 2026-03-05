@@ -19,7 +19,7 @@ create table if not exists auth.account (
     nickname varchar not null,
     email varchar not null,
     password_hash varchar not null,
-    avatar_file_id serial,
+    avatar_file_id int,
     created_at timestamptz default now() not null,
     updated_at timestamptz default now() not null,
     is_verified boolean default false not null,
@@ -29,7 +29,7 @@ create table if not exists auth.account (
 create table if not exists auth.confirm_otp (
     id serial primary key not null,
     email varchar not null,
-    code varchar(6) not null,
+    otp_code varchar(6) not null,
     created_at timestamptz default now() not null,
     expires_at timestamptz default now() + INTERVAL '5 minutes' not null
 );
