@@ -26,14 +26,6 @@ create table if not exists auth.account (
     is_active boolean default true not null
 );
 
-create table if not exists auth.confirm_otp (
-    id serial primary key not null,
-    email varchar not null,
-    otp_code varchar(6) not null,
-    created_at timestamptz default now() not null,
-    expires_at timestamptz default now() + INTERVAL '5 minutes' not null
-);
-
 --------------------------------------companies-----------------------------------------------
 create table if not exists company.plans (
     plan_id serial primary key not null,
