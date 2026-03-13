@@ -53,6 +53,7 @@ services:
       postgres:
         condition: service_started
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER}
@@ -60,6 +61,18 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
 
       REDIS_HOST: auth-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD}
+
+      PASSWORD_HASHER_MEMORY_SIZE: ${PASSWORD_HASHER_MEMORY_SIZE}
+      PASSWORD_HASHER_ITERATIONS: ${PASSWORD_HASHER_ITERATIONS}
+      PASSWORD_HASHER_DEGREE_OF_PARALLELISM: ${PASSWORD_HASHER_DEGREE_OF_PARALLELISM}
+      PASSWORD_HASHER_SALT_LENGTH: ${PASSWORD_HASHER_SALT_LENGTH}
+      PASSWORD_HASHER_HASH_LENGTH: ${PASSWORD_HASHER_HASH_LENGTH}
+
+      OTP_CODE_ACCESS_MINUTES: ${OTP_CODE_ACCESS_MINUTES}
+
+      RESET_PASSWORD_TOKEN_ACCESS_MINUTES: ${RESET_PASSWORD_TOKEN_ACCESS_MINUTES}
     ports:
       - "${AUTH_PORT}:8080"
     restart: unless-stopped
@@ -69,13 +82,13 @@ services:
   auth-redis:
     image: redis:7-alpine
     container_name: auth-redis
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${AUTH_REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "PING"]
       interval: 10s
       timeout: 3s
       retries: 10

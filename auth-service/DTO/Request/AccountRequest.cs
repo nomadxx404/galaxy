@@ -12,6 +12,6 @@ namespace auth_service.DTO.Request
         [Required] string NewPassword);
 
     public record AccountBatchRequest(
-        List<string> Uuids
+        List<string> Account_uuids
     );
 }
