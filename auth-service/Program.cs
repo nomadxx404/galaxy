@@ -1,6 +1,7 @@
 using auth_service.Infrastructure;
 using auth_service.Infrastructure.Middleware;
 using DotNetEnv;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
 Env.Load();
@@ -8,7 +9,19 @@ Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Servers = new List<OpenApiServer>
+        {
+            new() { Url = "http://localhost:8000" }
+        };
+        return Task.CompletedTask;
+    });
+});
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddInfrastructure();
@@ -16,7 +29,6 @@ builder.Services.AddInfrastructure();
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-app.UseMiddleware<AuthContextMiddleware>();
 
 app.MapOpenApi();   
 app.MapScalarApiReference();

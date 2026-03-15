@@ -1,0 +1,40 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: auth-service
+    url: http://auth-service:8080
+    routes:
+      - name: auth-public-route
+        paths:
+          - /scalar
+          - /openapi
+          - /api/auth/login
+          - /api/auth/register
+          - /api/auth/otp-confirm
+          - /api/auth/reset-otp-confirm
+          - /api/auth/forgot-password
+          - /api/auth/reset-password
+          - /api/auth/refresh-token
+        strip_path: false
+
+      - name: auth-protected-route
+        paths:
+          - /api/profile
+          - /api/auth/logout
+          - /api/auth/full-logout
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              cookie_names:
+                - access_token
+
+          - name: account-uuid-header
+
+consumers:
+  - username: internal-consumer
+    jwt_secrets:
+      - key: "galaxy-auth"
+        secret: "YourSuperSecretLongAndComplexKeyAtLeast32Chars123!"
+        algorithm: HS256
