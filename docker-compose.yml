@@ -27,8 +27,6 @@ services:
       POSTGRES_USER: ${LOGS_POSTGRES_USER}
       POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
       POSTGRES_DB: ${LOGS_POSTGRES_DB}
-    ports:
-      - "${LOGS_POSTGRES_PORT}:5432"
     volumes:
       - pgdata-galaxy-logs:/var/lib/postgresql/data/pgdata
     healthcheck:
@@ -112,7 +110,6 @@ services:
       KONG_PLUGINS: "bundled,account-uuid-header"
     ports:
       - "8000:8000"
-      - "8001:8001"
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
       - ./kong/plugins/account-uuid-header:/usr/local/share/lua/5.1/kong/plugins/account-uuid-header:ro
