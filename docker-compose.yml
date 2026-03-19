@@ -1,4 +1,29 @@
 services:
+  kong:
+    image: kong:latest
+    container_name: kong
+    depends_on:
+      - auth-service
+      - companies-service
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_LOG_LEVEL: info
+      KONG_PLUGINS: "bundled,account-uuid-header"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./kong/kong.yml:/etc/kong/kong.yml:ro
+      - ./kong/plugins/account-uuid-header:/usr/local/share/lua/5.1/kong/plugins/account-uuid-header:ro
+    restart: unless-stopped
+    networks:
+      - galaxy-net
+
   postgres:
     image: postgres:18-alpine
     container_name: postgres
@@ -8,7 +33,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5430:5432"
     volumes:
       - pgdata-galaxy:/var/lib/postgresql/data/pgdata
     healthcheck:
@@ -27,6 +52,8 @@ services:
       POSTGRES_USER: ${LOGS_POSTGRES_USER}
       POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
       POSTGRES_DB: ${LOGS_POSTGRES_DB}
+    ports:
+      - "5431:5432"
     volumes:
       - pgdata-galaxy-logs:/var/lib/postgresql/data/pgdata
     healthcheck:
@@ -72,7 +99,7 @@ services:
 
       RESET_PASSWORD_TOKEN_ACCESS_MINUTES: ${RESET_PASSWORD_TOKEN_ACCESS_MINUTES}
     ports:
-      - "${AUTH_PORT}:8080"
+      - ":8080"
     restart: unless-stopped
     networks:
       - galaxy-net
@@ -82,9 +109,9 @@ services:
     container_name: auth-redis
     command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
     ports:
-      - "${AUTH_REDIS_PORT}:6379"
+      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - auth_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "PING"]
       interval: 10s
@@ -93,34 +120,55 @@ services:
     networks:
       - galaxy-net
 
-  kong:
-    image: kong:latest
-    container_name: kong
-    depends_on:
-      - auth-service
+  companies-service:
+    build:
+      context: ./companies-service
+      dockerfile: Dockerfile
+    container_name: companies-service
     environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-      KONG_LOG_LEVEL: info
-      KONG_PLUGINS: "bundled,account-uuid-header"
+      - GIN_MODE=release
+
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+      - REDIS_HOST=companies-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${COMPANIES_REDIS_PASSWORD}
     ports:
-      - "8000:8000"
-    volumes:
-      - ./kong/kong.yml:/etc/kong/kong.yml:ro
-      - ./kong/plugins/account-uuid-header:/usr/local/share/lua/5.1/kong/plugins/account-uuid-header:ro
-    restart: unless-stopped
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      companies-redis:
+        condition: service_healthy
     networks:
       - galaxy-net
+
+  companies-redis:
+    image: redis:7-alpine
+    container_name: companies-redis
+    command: ["redis-server", "--requirepass", "${COMPANIES_REDIS_PASSWORD}"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - companies_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${COMPANIES_REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - galaxy-net
+
 
 volumes:
   pgdata-galaxy:
   pgdata-galaxy-logs:
-  redis_data:
+  auth_redis_data:
+  companies_redis_data:
 
 networks:
   galaxy-net:

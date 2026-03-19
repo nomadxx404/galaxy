@@ -30,9 +30,8 @@ var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-app.MapOpenApi();   
-app.MapScalarApiReference();
-app.MapGet("/", () => Results.Redirect("/scalar"));
+app.MapOpenApi();
+app.MapScalarApiReference("/scalar");
 
 //if (app.Environment.IsDevelopment())
 //{
