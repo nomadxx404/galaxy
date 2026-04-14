@@ -1,0 +1,694 @@
+openapi: 3.1.1
+info:
+  title: Companies Service API
+  version: "1.0"
+servers:
+  - url: http://localhost:8000
+
+paths:
+  /api/companies:
+    get:
+      tags: [Companies]
+      summary: Get companies
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CompanyResponse"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+    post:
+      tags: [Companies]
+      summary: Create company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/CompanyRequest"
+              required:
+                - name
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+
+  /api/companies/{company_uuid}:
+    patch:
+      tags: [Companies]
+      summary: Update company
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/CompanyRequest"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+    get:
+      tags: [Companies]
+      summary: Get company by uuid
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+    delete:
+      tags: [Companies]
+      summary: Delete company
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      responses:
+        "200":
+          $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/companies/{company_uuid}/roles:
+    get:
+      tags: [Roles]
+      summary: Get roles
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleResponse"
+        "400":
+            $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+    post:
+        tags: [Roles]
+        summary: Create role
+        parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/RoleRequest"
+                required:
+                  - name
+        responses:
+          "201":
+            description: "Created"
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: "#/components/schemas/SuccessResponse"
+                    - type: object
+                      properties:
+                        data:
+                          $ref: "#/components/schemas/RoleResponse"
+          "400":
+            $ref: "#/components/responses/Error400"
+          "401":
+            $ref: "#/components/responses/Error401"
+          "403":
+            $ref: "#/components/responses/Error403"
+          "409":
+            $ref: "#/components/responses/Error403"
+
+  /api/companies/{company_uuid}/roles/{role_id}:
+    patch:
+      tags: [Roles]
+      summary: Update role
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/RoleID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/RoleRequest"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+    get:
+      tags: [Roles]
+      summary: Get role by uuid
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/RoleID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+    delete:
+      tags: [Roles]
+      summary: Delete role
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/RoleID"
+      responses:
+        "200":
+          $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/companies/{company_uuid}/invitations:
+   post:
+      tags: [Invitation]
+      summary: Create invitation
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/InvitationRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error401"
+
+  /api/invitations/{tokenUrl}/accept:
+    post:
+      tags: [Invitation]
+      summary: Accept invitation
+      parameters:
+        - name: tokenUrl
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "410":
+          $ref: "#/components/responses/Error410"
+
+  /api/companies/{company_uuid}/members:
+    get:
+      tags: [Members]
+      summary: Get members
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MemberResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+
+  /api/companies/{company_uuid}/members/{account_uuid}:
+    delete:
+      tags: [Members]
+      summary: Delete member
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/AccountUUID"
+      responses:
+        "200":
+          description: "Ok"
+          $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/companies/{company_uuid}/members/{account_uuid}/role:
+     post:
+      tags: [Members]
+      summary: Update role member
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/AccountUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/MemberRequest"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/companies/{company_uuid}/members/{account_uuid}/set-owner:
+     post:
+      tags: [Members]
+      summary: Set owner member
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/AccountUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/companies/permissions:
+    get:
+      tags: [Permissions]
+      summary: Get permissions
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PermissionResponse"
+
+  /api/companies/{company_uuid}/members/{account_uuid}/permissions:
+    put:
+      tags: [Permissions]
+      summary: Update Permissions
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/AccountUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePermissionsRequest"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+    get:
+      tags: [Permissions]
+      summary: Get account permissions
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+        - $ref: "#/components/parameters/AccountUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PermissionAccountResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+components:
+  parameters:
+    CompanyUUID:
+      name: company_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AccountUUID:
+      name: account_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: "ID аккаунта"
+    RoleID:
+      name: role_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: "ID роли"
+
+  schemas:
+    CompanyRequest:
+      type: object
+      properties:
+        name:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+          nullable: true
+        logo_file_id:
+          type: [integer, "null"]
+          nullable: true
+    CompanyResponse:
+      type: object
+      properties:
+        company_uuid:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        logo_file_id:
+          type: integer
+          nullable: true
+        billing_status:
+          type: string
+
+    RoleRequest:
+      type: object
+      properties:
+        name:
+          type: [string, "null"]
+        description:
+          type: [string, "null"]
+          nullable: true
+        color:
+          type: [integer, "null"]
+    RoleResponse:
+      type: object
+      properties:
+        role_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    InvitationRequest:
+      type: object
+      properties:
+        email:
+          type: string
+
+    MemberRequest:
+      type: object
+      properties:
+        role_id:
+          type: integer
+
+    MemberResponse:
+      type: object
+      properties:
+        account_uuid:
+          type: string
+          format: uuid
+        role_id:
+          type: integer
+        role_name:
+          type: string
+        role_color:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PermissionResponse:
+      type: object
+      properties:
+        mask:
+          type: integer
+        domain:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+
+    DomainPermission:
+      type: object
+      required:
+        - domain
+        - mask
+      properties:
+        domain:
+          type: string
+        mask:
+          type: integer
+          format: int64
+
+    UpdatePermissionsRequest:
+      type: object
+      required:
+        - permissions
+      properties:
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainPermission"
+
+    PermissionAccountResponse:
+      type: object
+      properties:
+        mask:
+          type: integer
+        domain:
+          type: string
+
+
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+
+  responses:
+    Error400:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error401:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error403:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error404:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error409:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error410:
+      description: "Gone"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
