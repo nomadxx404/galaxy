@@ -8,7 +8,11 @@ services:
       - name: auth-docs-route
         paths:
           - /auth
+          - /scalar
         strip_path: true
+        protocols:
+          - http
+          - https
 
       - name: auth-public-api-route
         paths:
@@ -20,6 +24,9 @@ services:
           - /api/auth/reset-password
           - /api/auth/refresh-token
         strip_path: false
+        protocols:
+          - http
+          - https
 
       - name: auth-protected-route
         paths:
@@ -27,6 +34,9 @@ services:
           - /api/auth/logout
           - /api/auth/full-logout
         strip_path: false
+        protocols:
+          - http
+          - https
         plugins:
           - name: jwt
             config:
@@ -37,8 +47,8 @@ services:
       - name: cors
         config:
           origins:
-            # - http://localhost:8080 front
             - http://localhost:8000
+            # - http://localhost:8080 front
           methods:
             - GET
             - POST
@@ -63,11 +73,19 @@ services:
         paths:
           - /companies
         strip_path: false
+        protocols:
+          - http
+          - https
 
       - name: companies-protected-route
         paths:
           - /api/companies
+          - /api/invitations
+          - /api/permission
         strip_path: false
+        protocols:
+          - http
+          - https
         plugins:
           - name: jwt
             config:

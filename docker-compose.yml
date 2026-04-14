@@ -1,6 +1,6 @@
 services:
   kong:
-    image: kong:latest
+    image: kong/kong-gateway:3.14
     container_name: kong
     depends_on:
       - auth-service
@@ -8,6 +8,8 @@ services:
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_REQUIRE_HTTPS_OFF_TERMINATION: "yes"
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
