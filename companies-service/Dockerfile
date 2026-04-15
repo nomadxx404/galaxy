@@ -6,7 +6,7 @@ RUN apk add --no-cache git sed
 ENV CGO_ENABLED=0 GOOS=linux
 
 COPY go.mod go.sum ./
-RUN sed -i 's/go 1.25.6/go 1.23.0/g' go.mod && go mod download
+RUN go mod download
 
 COPY . .
 

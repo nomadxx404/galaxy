@@ -58,10 +58,10 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 	}
 
 	company_uuid := c.Param("company_uuid")
-	// if company_uuid == "" {
-	// 	response.SendFailure(c, 400, "ID компании не указан")
-	// 	return
-	// }
+	if company_uuid == "" {
+		response.SendFailure(c, 400, "ID компании не указан")
+		return
+	}
 
 	res, err := h.service.UpdateCompany(c.Request.Context(), company_uuid, req)
 
