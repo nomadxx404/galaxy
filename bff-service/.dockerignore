@@ -1,0 +1,13 @@
+.env
+bin/
+obj/
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+tmp
+dist
+coverage
+.idea
+.vscode
+*.log

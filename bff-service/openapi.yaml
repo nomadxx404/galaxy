@@ -1,0 +1,115 @@
+openapi: 3.1.1
+info:
+  title: BFF Service API
+  version: "1.0"
+servers:
+  - url: http://localhost:8000
+
+paths:
+  /api/ui/companies/{company_uuid}/members:
+    get:
+      summary: Get company members
+      tags: [Companies]
+      parameters:
+        - $ref: "#/components/parameters/CompanyUUID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AggregatedMemberCompanyResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+
+components:
+  parameters:
+    CompanyUUID:
+      name: company_uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    AggregatedMemberCompanyResponse:
+      type: object
+      properties:
+        account_uuid:
+          type: string
+        name:
+          type: string
+        nickname:
+          type: string
+        avatar_file_id:
+          type: integer
+        role_id:
+          type: integer
+        role_name:
+          type: string
+        role_color:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+
+  responses:
+    Error400:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error401:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error403:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error404:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error409:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error410:
+      description: "Gone"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

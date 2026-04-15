@@ -2,6 +2,24 @@ _format_version: "3.0"
 _transform: true
 
 services:
+  - name: bff-service
+    url: http://bff-service:8080
+    routes:
+      - name: bff-ui-route
+        paths:
+          - /ui
+          - /api/ui
+        strip_path: false
+        protocols:
+          - http
+          - https
+    plugins:
+      - name: jwt
+        config:
+          cookie_names:
+            - access_token
+      - name: account-uuid-header
+
   - name: auth-service
     url: http://auth-service:8080
     routes:
