@@ -126,7 +126,8 @@ func (s *InvitationService) AcceptInvitation(
 		roleID = role_id
 	}
 
-	account_uuid, err := usercontext.GetAccountUuid(ctx)
+	account_uuid := usercontext.GetAccountUuid(ctx)
+
 	err = qTx.CreateMember(ctx, db.CreateMemberParams{
 		CompanyUuid: company_uuid,
 		AccountUuid: account_uuid,

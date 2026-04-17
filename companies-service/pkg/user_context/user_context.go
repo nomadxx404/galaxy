@@ -1,7 +1,6 @@
 package usercontext
 
 import (
-	"companies-service/pkg/response"
 	"context"
 )
 
@@ -13,13 +12,7 @@ func WithAccountUuid(ctx context.Context, uuid string) context.Context {
 	return context.WithValue(ctx, accountUuidKey, uuid)
 }
 
-func GetAccountUuid(ctx context.Context) (string, error) {
-	accountUUID, ok := ctx.Value(accountUuidKey).(string)
-	if !ok || accountUUID == "" {
-		return "", &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена или не авторизована",
-		}
-	}
-	return accountUUID, nil
+func GetAccountUuid(ctx context.Context) string {
+	account_uuid, _ := ctx.Value(accountUuidKey).(string)
+	return account_uuid
 }

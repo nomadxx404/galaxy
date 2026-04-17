@@ -84,14 +84,7 @@ func (s *MemberService) SetOwner(
 	company_uuid string,
 	account_uuid string) error {
 
-	account_uuid_session, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-			Data:    err,
-		}
-	}
+	account_uuid_session := usercontext.GetAccountUuid(ctx)
 
 	isOwner, err := s.store.IsCompanyOwner(ctx, db.IsCompanyOwnerParams{
 		AccountUuid: account_uuid_session,
@@ -147,13 +140,7 @@ func (s *MemberService) DeleteMember(
 	company_uuid string,
 	target_account_uuid string) error {
 
-	initiator_account_uuid, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-		}
-	}
+	initiator_account_uuid := usercontext.GetAccountUuid(ctx)
 
 	if initiator_account_uuid == target_account_uuid {
 		return &response.ApiError{
