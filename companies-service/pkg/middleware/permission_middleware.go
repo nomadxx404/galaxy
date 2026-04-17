@@ -28,12 +28,7 @@ func PermissionMiddleware(
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		account_uuid, err := usercontext.GetAccountUuid(ctx)
-		if account_uuid == "" {
-			response.SendFailure(c, 401, "Сессия не найдена")
-			c.Abort()
-			return
-		}
+		account_uuid := usercontext.GetAccountUuid(ctx)
 
 		company_uuid := c.Param("company_uuid")
 		if company_uuid == "" {

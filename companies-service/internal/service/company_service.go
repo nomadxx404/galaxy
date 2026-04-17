@@ -85,13 +85,7 @@ func (s *CompanyService) CreateCompany(
 		}
 	}
 
-	account_uuid, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return db.CreateCompanyRow{}, &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-		}
-	}
+	account_uuid := usercontext.GetAccountUuid(ctx)
 
 	err = qTx.CreateMember(ctx, db.CreateMemberParams{
 		CompanyUuid: company_uuid,
@@ -136,14 +130,7 @@ func (s *CompanyService) CreateCompany(
 }
 
 func (s *CompanyService) GetCompanies(ctx context.Context) ([]db.GetCompaniesRow, error) {
-	account_uuid, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return []db.GetCompaniesRow{}, &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-			Data:    err,
-		}
-	}
+	account_uuid := usercontext.GetAccountUuid(ctx)
 
 	companies, err := s.store.GetCompanies(ctx, account_uuid)
 
@@ -197,14 +184,7 @@ func (s *CompanyService) GetCompanyByUuid(
 	ctx context.Context,
 	company_uuid string) (db.GetCompanyByUuidRow, error) {
 
-	account_uuid, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return db.GetCompanyByUuidRow{}, &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-			Data:    err,
-		}
-	}
+	account_uuid := usercontext.GetAccountUuid(ctx)
 
 	key := rdb.GetCompanyKey(company_uuid)
 	company_cache, err := s.rdb.Get(ctx, key).Result()
@@ -247,13 +227,7 @@ func (s *CompanyService) DeleteCompany(
 	ctx context.Context,
 	company_uuid string) error {
 
-	account_uuid, err := usercontext.GetAccountUuid(ctx)
-	if err != nil {
-		return &response.ApiError{
-			Status:  401,
-			Message: "Сессия не найдена",
-			Data:    err}
-	}
+	account_uuid := usercontext.GetAccountUuid(ctx)
 
 	isOwner, err := s.store.IsCompanyOwner(ctx, db.IsCompanyOwnerParams{
 		AccountUuid: account_uuid,

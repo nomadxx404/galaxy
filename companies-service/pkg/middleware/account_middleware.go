@@ -12,7 +12,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		accountUUID := c.GetHeader("X-Account-Uuid")
 
 		if accountUUID == "" {
-			response.SendFailure(c, 401, "X-Account-Uuid header is missing")
+			response.SendFailure(c, 401, "X-Account-Uuid отсутствует")
 			c.Abort()
 			return
 		}

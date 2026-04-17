@@ -54,7 +54,7 @@ func (s *PermissionService) UpdatePermissions(
 
 	qTx := s.store.WithTx(tx)
 
-	account_uuid_change_by, err := usercontext.GetAccountUuid(ctx)
+	account_uuid_change_by := usercontext.GetAccountUuid(ctx)
 
 	for _, p := range req.Permissions {
 
