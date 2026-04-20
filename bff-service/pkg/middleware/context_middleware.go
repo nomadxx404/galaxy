@@ -10,7 +10,7 @@ type contextKey string
 
 const AccountUUIDKey contextKey = "x-account-uuid"
 
-func ContextInterceptor() gin.HandlerFunc {
+func ContextMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		accountUUID := c.GetHeader("X-Account-Uuid")
 
