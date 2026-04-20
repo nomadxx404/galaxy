@@ -25,7 +25,7 @@ func (a *App) RegisterRoutes() {
 	}
 
 	v1 := a.Router.Group("/api/ui")
-	v1.Use(middleware.ContextInterceptor())
+	v1.Use(middleware.ContextMiddleware())
 	{
 		companies := v1.Group("/companies")
 		{
