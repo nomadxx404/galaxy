@@ -9,24 +9,34 @@ import (
 )
 
 type Querier interface {
+	CountOwners(ctx context.Context, companyUuid string) (int64, error)
 	CreateCompany(ctx context.Context, arg CreateCompanyParams) (CreateCompanyRow, error)
 	CreateMember(ctx context.Context, arg CreateMemberParams) error
+	CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) error
 	CreateRole(ctx context.Context, arg CreateRoleParams) (CreateRoleRow, error)
+	DeleteAllMembers(ctx context.Context, companyUuid string) ([]string, error)
+	DeleteAllPermissionsCompany(ctx context.Context, arg DeleteAllPermissionsCompanyParams) ([]string, error)
+	DeleteAllPermissionsMember(ctx context.Context, arg DeleteAllPermissionsMemberParams) error
+	DeleteAllRoles(ctx context.Context, companyUuid string) ([]int32, error)
 	DeleteCompany(ctx context.Context, companyUuid string) error
 	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
 	DeleteRole(ctx context.Context, arg DeleteRoleParams) error
 	GetCompanies(ctx context.Context, accountUuid string) ([]GetCompaniesRow, error)
 	GetCompanyByUuid(ctx context.Context, arg GetCompanyByUuidParams) (GetCompanyByUuidRow, error)
+	GetCompanyMembershipsByAccountUUID(ctx context.Context, accountUuid string) ([]GetCompanyMembershipsByAccountUUIDRow, error)
 	GetMembers(ctx context.Context, companyUuid string) ([]GetMembersRow, error)
 	GetMembersStatuses(ctx context.Context, arg GetMembersStatusesParams) ([]GetMembersStatusesRow, error)
-	GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (int32, error)
 	GetRoleByUuid(ctx context.Context, arg GetRoleByUuidParams) (GetRoleByUuidRow, error)
+	GetRoleIdByName(ctx context.Context, arg GetRoleIdByNameParams) (int32, error)
 	GetRoles(ctx context.Context, companyUuid string) ([]GetRolesRow, error)
+	GetUnprocessedEvents(ctx context.Context) ([]GetUnprocessedEventsRow, error)
 	GetUserAllPermissions(ctx context.Context, arg GetUserAllPermissionsParams) ([]GetUserAllPermissionsRow, error)
 	GetUserPermissionMask(ctx context.Context, arg GetUserPermissionMaskParams) (GetUserPermissionMaskRow, error)
 	GiveAccess(ctx context.Context, arg GiveAccessParams) error
 	IsCompanyOwner(ctx context.Context, arg IsCompanyOwnerParams) (bool, error)
 	IsExistsRole(ctx context.Context, arg IsExistsRoleParams) (bool, error)
+	MarkEventFailed(ctx context.Context, arg MarkEventFailedParams) error
+	MarkEventProcessed(ctx context.Context, messageUuid string) error
 	SetOwner(ctx context.Context, arg SetOwnerParams) (int64, error)
 	UpdateCompany(ctx context.Context, arg UpdateCompanyParams) (UpdateCompanyRow, error)
 	UpdatePermissions(ctx context.Context, arg UpdatePermissionsParams) error

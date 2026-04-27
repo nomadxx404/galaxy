@@ -12,7 +12,7 @@ func main() {
 	application, cleanup := app.NewApp(ctx)
 	defer cleanup()
 
-	if err := application.Run(); err != nil {
+	if err := application.Run(ctx); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

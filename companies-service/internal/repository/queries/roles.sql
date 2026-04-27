@@ -56,10 +56,18 @@ UPDATE company.roles
 SET is_active  = false,
     updated_at = NOW()
 WHERE company_uuid = $1
-  AND role_id = $2;
+  AND role_id = $2
+  AND is_active = true;
 
--- name: GetRoleByName :one
+-- name: GetRoleIdByName :one
 SELECT role_id
 FROM company.roles
 WHERE company_uuid = $1
   AND name = $2;
+
+-- name: DeleteAllRoles :many
+UPDATE company.roles
+SET is_active  = FALSE,
+    updated_at = now()
+WHERE company_uuid = $1
+RETURNING role_id;

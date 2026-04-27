@@ -1,5 +1,6 @@
 ﻿using auth_service.Config;
 using auth_service.Data;
+using auth_service.Infrastructure.Kafka;
 using auth_service.Repositories;
 using auth_service.Repositories.Interfaces;
 using auth_service.Services;
@@ -19,6 +20,7 @@ namespace auth_service.Infrastructure
             services.AddSingleton(config.JwtConfig);
             services.AddSingleton(config.ArgonConfig);
             services.AddSingleton(config.AuthConfig);
+            services.AddSingleton(config.KafkaConfig);
 
 
             services.AddSingleton<RedisConnection>();
@@ -37,7 +39,11 @@ namespace auth_service.Infrastructure
 
             services.AddScoped<IAccountRepository, AccountRepository>();
             services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IOutboxEventsRepository, OutboxEventsRepository>();
 
+            services.AddScoped<IOutboxEmitter, OutboxEmitter>();
+
+            services.AddHostedService<Producer>();
 
             return services;
         }

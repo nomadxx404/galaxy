@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+const countOwners = `-- name: CountOwners :one
+SELECT count(*)
+FROM company.members
+WHERE company_uuid = $1
+  AND is_owner = true
+`
+
+func (q *Queries) CountOwners(ctx context.Context, companyUuid string) (int64, error) {
+	row := q.db.QueryRow(ctx, countOwners, companyUuid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMember = `-- name: CreateMember :exec
 INSERT INTO company.members (company_uuid,
                              account_uuid,
@@ -35,6 +49,35 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) erro
 	return err
 }
 
+const deleteAllMembers = `-- name: DeleteAllMembers :many
+UPDATE company.members
+SET is_active  = false,
+    updated_at = now()
+WHERE company_uuid = $1
+  AND is_active = true
+RETURNING account_uuid
+`
+
+func (q *Queries) DeleteAllMembers(ctx context.Context, companyUuid string) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAllMembers, companyUuid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var account_uuid string
+		if err := rows.Scan(&account_uuid); err != nil {
+			return nil, err
+		}
+		items = append(items, account_uuid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteMember = `-- name: DeleteMember :exec
 UPDATE company.members
 SET is_active  = FALSE,
@@ -53,10 +96,45 @@ func (q *Queries) DeleteMember(ctx context.Context, arg DeleteMemberParams) erro
 	return err
 }
 
+const getCompanyMembershipsByAccountUUID = `-- name: GetCompanyMembershipsByAccountUUID :many
+SELECT company_uuid,
+       account_uuid,
+       is_owner
+FROM company.members
+WHERE account_uuid = $1
+`
+
+type GetCompanyMembershipsByAccountUUIDRow struct {
+	CompanyUuid string `json:"company_uuid"`
+	AccountUuid string `json:"account_uuid"`
+	IsOwner     bool   `json:"is_owner"`
+}
+
+func (q *Queries) GetCompanyMembershipsByAccountUUID(ctx context.Context, accountUuid string) ([]GetCompanyMembershipsByAccountUUIDRow, error) {
+	rows, err := q.db.Query(ctx, getCompanyMembershipsByAccountUUID, accountUuid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetCompanyMembershipsByAccountUUIDRow
+	for rows.Next() {
+		var i GetCompanyMembershipsByAccountUUIDRow
+		if err := rows.Scan(&i.CompanyUuid, &i.AccountUuid, &i.IsOwner); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMembers = `-- name: GetMembers :many
 SELECT m.account_uuid,
        m.role_id,
        m.created_at,
+       m.is_active,
        r.name  AS role_name,
        r.color AS role_color
 FROM company.members m
@@ -69,6 +147,7 @@ type GetMembersRow struct {
 	AccountUuid string    `json:"account_uuid"`
 	RoleID      int32     `json:"role_id"`
 	CreatedAt   time.Time `json:"created_at"`
+	IsActive    bool      `json:"is_active"`
 	RoleName    string    `json:"role_name"`
 	RoleColor   string    `json:"role_color"`
 }
@@ -86,6 +165,7 @@ func (q *Queries) GetMembers(ctx context.Context, companyUuid string) ([]GetMemb
 			&i.AccountUuid,
 			&i.RoleID,
 			&i.CreatedAt,
+			&i.IsActive,
 			&i.RoleName,
 			&i.RoleColor,
 		); err != nil {
@@ -100,10 +180,12 @@ func (q *Queries) GetMembers(ctx context.Context, companyUuid string) ([]GetMemb
 }
 
 const getMembersStatuses = `-- name: GetMembersStatuses :many
-SELECT account_uuid, is_owner
+SELECT account_uuid,
+       is_owner
 FROM company.members
 WHERE company_uuid = $1
   AND account_uuid IN ($2, $3)
+  AND is_active = true
 `
 
 type GetMembersStatusesParams struct {

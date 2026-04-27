@@ -3,17 +3,23 @@ package api
 import (
 	"companies-service/internal/dto/request"
 	"companies-service/internal/permissions"
-	"companies-service/internal/service"
+	"companies-service/internal/repository/db"
 	"companies-service/pkg/response"
+	"context"
 
 	"github.com/gin-gonic/gin"
 )
 
-type PermissionHandler struct {
-	service *service.PermissionService
+type PermissionManager interface {
+	UpdatePermissions(ctx context.Context, dbExecutor db.DBTX, company_uuid string, account_uuid string, req request.UpdatePermissionsRequest) error
+	GetAccountPermission(ctx context.Context, dbExecutor db.DBTX, company_uuid, account_uuid string) ([]db.GetUserAllPermissionsRow, error)
 }
 
-func NewPermissionHandler(s *service.PermissionService) *PermissionHandler {
+type PermissionHandler struct {
+	service PermissionManager
+}
+
+func NewPermissionHandler(s PermissionManager) *PermissionHandler {
 	return &PermissionHandler{
 		service: s,
 	}
@@ -35,7 +41,7 @@ func (h *PermissionHandler) UpdatePermissions(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdatePermissions(c.Request.Context(), company_uuid, account_uuid, req)
+	err := h.service.UpdatePermissions(c.Request.Context(), nil, company_uuid, account_uuid, req)
 
 	if err != nil {
 		response.HandleError(c, err)
@@ -49,7 +55,7 @@ func (h *PermissionHandler) GetAccountPermission(c *gin.Context) {
 	company_uuid := c.Param("company_uuid")
 	account_uuid := c.Param("account_uuid")
 
-	res, err := h.service.GetAccountPermission(c.Request.Context(), company_uuid, account_uuid)
+	res, err := h.service.GetAccountPermission(c.Request.Context(), nil, company_uuid, account_uuid)
 
 	if err != nil {
 		response.HandleError(c, err)

@@ -2,18 +2,26 @@ package api
 
 import (
 	"companies-service/internal/dto/request"
-	"companies-service/internal/service"
+	"companies-service/internal/repository/db"
 	"companies-service/pkg/middleware"
 	"companies-service/pkg/response"
+	"context"
 
 	"github.com/gin-gonic/gin"
 )
 
-type MemberHandler struct {
-	service *service.MemberService
+type MemberManager interface {
+	UpdateRoleMember(ctx context.Context, dbExecutor db.DBTX, company_uuid string, account_uuid string, req request.UpdateRoleMemberRequest) error
+	SetOwner(ctx context.Context, dbExecutor db.DBTX, company_uuid string, account_uuid string) error
+	DeleteMember(ctx context.Context, dbExecutor db.DBTX, company_uuid string, target_account_uuid string) error
+	GetMembers(ctx context.Context, dbExecutor db.DBTX, company_uuid string) ([]db.GetMembersRow, error)
 }
 
-func NewMemberHandler(s *service.MemberService) *MemberHandler {
+type MemberHandler struct {
+	service MemberManager
+}
+
+func NewMemberHandler(s MemberManager) *MemberHandler {
 	return &MemberHandler{
 		service: s,
 	}
@@ -37,7 +45,7 @@ func (h *MemberHandler) UpdateRoleMember(c *gin.Context) {
 		return
 	}
 
-	err := h.service.UpdateRoleMember(c.Request.Context(), company_uuid, account_uuid, *req)
+	err := h.service.UpdateRoleMember(c.Request.Context(), nil, company_uuid, account_uuid, *req)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -59,7 +67,7 @@ func (h *MemberHandler) SetOwner(c *gin.Context) {
 		return
 	}
 
-	err := h.service.SetOwner(c.Request.Context(), company_uuid, account_uuid)
+	err := h.service.SetOwner(c.Request.Context(), nil, company_uuid, account_uuid)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -81,7 +89,7 @@ func (h *MemberHandler) DeleteMember(c *gin.Context) {
 		return
 	}
 
-	err := h.service.DeleteMember(c.Request.Context(), company_uuid, account_uuid)
+	err := h.service.DeleteMember(c.Request.Context(), nil, company_uuid, account_uuid)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -97,7 +105,7 @@ func (h *MemberHandler) GetMembers(c *gin.Context) {
 		return
 	}
 
-	members, err := h.service.GetMembers(c.Request.Context(), company_uuid)
+	members, err := h.service.GetMembers(c.Request.Context(), nil, company_uuid)
 	if err != nil {
 		response.HandleError(c, err)
 		return

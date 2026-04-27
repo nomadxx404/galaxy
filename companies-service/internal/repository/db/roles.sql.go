@@ -59,12 +59,41 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (CreateR
 	return i, err
 }
 
+const deleteAllRoles = `-- name: DeleteAllRoles :many
+UPDATE company.roles
+SET is_active  = FALSE,
+    updated_at = now()
+WHERE company_uuid = $1
+RETURNING role_id
+`
+
+func (q *Queries) DeleteAllRoles(ctx context.Context, companyUuid string) ([]int32, error) {
+	rows, err := q.db.Query(ctx, deleteAllRoles, companyUuid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var role_id int32
+		if err := rows.Scan(&role_id); err != nil {
+			return nil, err
+		}
+		items = append(items, role_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteRole = `-- name: DeleteRole :exec
 UPDATE company.roles
 SET is_active  = false,
     updated_at = NOW()
 WHERE company_uuid = $1
   AND role_id = $2
+  AND is_active = true
 `
 
 type DeleteRoleParams struct {
@@ -75,25 +104,6 @@ type DeleteRoleParams struct {
 func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) error {
 	_, err := q.db.Exec(ctx, deleteRole, arg.CompanyUuid, arg.RoleID)
 	return err
-}
-
-const getRoleByName = `-- name: GetRoleByName :one
-SELECT role_id
-FROM company.roles
-WHERE company_uuid = $1
-  AND name = $2
-`
-
-type GetRoleByNameParams struct {
-	CompanyUuid string `json:"company_uuid"`
-	Name        string `json:"name"`
-}
-
-func (q *Queries) GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (int32, error) {
-	row := q.db.QueryRow(ctx, getRoleByName, arg.CompanyUuid, arg.Name)
-	var role_id int32
-	err := row.Scan(&role_id)
-	return role_id, err
 }
 
 const getRoleByUuid = `-- name: GetRoleByUuid :one
@@ -134,6 +144,25 @@ func (q *Queries) GetRoleByUuid(ctx context.Context, arg GetRoleByUuidParams) (G
 		&i.IsActive,
 	)
 	return i, err
+}
+
+const getRoleIdByName = `-- name: GetRoleIdByName :one
+SELECT role_id
+FROM company.roles
+WHERE company_uuid = $1
+  AND name = $2
+`
+
+type GetRoleIdByNameParams struct {
+	CompanyUuid string `json:"company_uuid"`
+	Name        string `json:"name"`
+}
+
+func (q *Queries) GetRoleIdByName(ctx context.Context, arg GetRoleIdByNameParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getRoleIdByName, arg.CompanyUuid, arg.Name)
+	var role_id int32
+	err := row.Scan(&role_id)
+	return role_id, err
 }
 
 const getRoles = `-- name: GetRoles :many

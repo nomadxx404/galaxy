@@ -1,44 +1,65 @@
 package service
 
 import (
+	"companies-service/internal/dto/entity"
 	"companies-service/internal/dto/request"
 	"companies-service/internal/repository/db"
 	rdb "companies-service/internal/repository/redis"
+	"companies-service/pkg/config"
+	"companies-service/pkg/data"
+	"companies-service/pkg/kafka"
 	"companies-service/pkg/response"
 	usercontext "companies-service/pkg/user_context"
 	pgxutil "companies-service/pkg/utils"
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
-type InvitationService struct {
-	store *db.Queries
-	rdb   *redis.Client
-	pool  *pgxpool.Pool
+type InvitationMemberManager interface {
+	CreateMember(ctx context.Context, dbExecutor db.DBTX, ent entity.CreateMemberEntity) error
+}
+
+type InvitationRoleManager interface {
+	CreateRole(ctx context.Context, dbExecutor db.DBTX, company_uuid string, req request.CreateRoleRequest) (db.CreateRoleRow, error)
+	GetRoleIdByName(ctx context.Context, dbExecutor db.DBTX, ent entity.GetRoleIdByName) (int32, error)
+}
+
+type invitationService struct {
+	rdb           *redis.Client
+	pool          *pgxpool.Pool
+	txManager     *data.TransactionManager
+	cfg           *config.Config
+	roleService   InvitationRoleManager
+	memberService InvitationMemberManager
 }
 
 func NewInvitationService(
-	store *db.Queries,
 	rdb *redis.Client,
-	pool *pgxpool.Pool) *InvitationService {
+	pool *pgxpool.Pool,
+	txManager *data.TransactionManager,
+	cfg *config.Config,
+	roleService InvitationRoleManager,
+	memberService InvitationMemberManager) *invitationService {
 
-	return &InvitationService{
-		store: store,
-		rdb:   rdb,
-		pool:  pool,
+	return &invitationService{
+		rdb:           rdb,
+		pool:          pool,
+		txManager:     txManager,
+		cfg:           cfg,
+		roleService:   roleService,
+		memberService: memberService,
 	}
 }
 
-func (s *InvitationService) CreateInvitation(
+func (s *invitationService) CreateInvitation(
 	ctx context.Context,
+	dbExecutor db.DBTX,
 	company_uuid string,
 	req request.CreateInvitationRequest) error {
 
@@ -52,7 +73,7 @@ func (s *InvitationService) CreateInvitation(
 	}
 
 	key := rdb.GetInvitationKey(token)
-	err = s.rdb.Set(ctx, key, company_uuid, 10*time.Minute).Err()
+	err = s.rdb.Set(ctx, key, company_uuid, time.Duration(s.cfg.Invitation.INVITATION_LINK_ACCESS_MINUTES)*time.Minute).Err()
 
 	if err != nil {
 		return &response.ApiError{
@@ -62,18 +83,29 @@ func (s *InvitationService) CreateInvitation(
 		}
 	}
 
-	//TODO:
-	//Kafka - create event send token email
+	payload := map[string]any{
+		"company_uuid": company_uuid,
+		"email":        req.Email,
+		"token":        token,
+	}
 
-	return nil
+	err = s.txManager.WithinTransaction(ctx, dbExecutor, func(tx db.DBTX) error {
+		if err = kafka.EmitOutbox(ctx, tx, kafka.InvitationCreated, payload); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return err
 }
 
-func (s *InvitationService) AcceptInvitation(
+func (s *invitationService) AcceptInvitation(
 	ctx context.Context,
+	dbExecutor db.DBTX,
 	token string) error {
 
-	key := rdb.GetInvitationKey(token)
-	company_uuid, err := s.rdb.Get(ctx, key).Result()
+	keyToken := rdb.GetInvitationKey(token)
+	company_uuid, err := s.rdb.Get(ctx, keyToken).Result()
 	if err == redis.Nil {
 		return &response.ApiError{
 			Status:  410,
@@ -81,89 +113,62 @@ func (s *InvitationService) AcceptInvitation(
 		}
 	}
 
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return &response.ApiError{
-			Status:  500,
-			Message: "Ошибка создания транзакции",
-			Data:    err,
-		}
-	}
-	defer tx.Rollback(ctx)
+	err = s.txManager.WithinTransaction(ctx, dbExecutor, func(tx db.DBTX) error {
 
-	qTx := s.store.WithTx(tx)
+		var roleID int32
+		role_id, err := s.roleService.GetRoleIdByName(ctx, tx, entity.GetRoleIdByName{
+			CompanyUuid: company_uuid,
+			Name:        "Приглашенный",
+		})
 
-	var roleID int32
-	role_id, err := s.store.GetRoleByName(ctx, db.GetRoleByNameParams{
-		CompanyUuid: company_uuid,
-		Name:        "Приглашенный",
-	})
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			newRole, createErr := qTx.CreateRole(ctx, db.CreateRoleParams{
-				CompanyUuid: company_uuid,
-				Name:        "Приглашенный",
-				Color:       "123456",
-				Description: pgxutil.TextValid("Стал участником по приглашению"),
-			})
-			if createErr != nil {
-				return &response.ApiError{
-					Status:  500,
-					Message: "Не удалось создать роль по умолчанию",
-					Data:    err,
+		if err != nil {
+			var apiErr *response.ApiError
+			if errors.As(err, &apiErr) && apiErr.Status == 404 {
+				createdRole, errRole := s.roleService.CreateRole(ctx, tx, company_uuid, request.CreateRoleRequest{
+					Name:        "Приглашенный",
+					Color:       "123456",
+					Description: pgxutil.Pointer("Стал участником по приглашению"),
+				})
+				if errRole != nil {
+					return err
 				}
+				roleID = createdRole.RoleID
+			} else {
+				return err
 			}
-			roleID = newRole.RoleID
 		} else {
-			return &response.ApiError{
-				Status:  500,
-				Message: "Ошибка при поиске роли",
-				Data:    err,
-			}
+			roleID = role_id
 		}
-	} else {
-		roleID = role_id
-	}
 
-	account_uuid := usercontext.GetAccountUuid(ctx)
+		account_uuid := usercontext.GetAccountUuid(ctx)
 
-	err = qTx.CreateMember(ctx, db.CreateMemberParams{
-		CompanyUuid: company_uuid,
-		AccountUuid: account_uuid,
-		RoleID:      roleID,
-		IsOwner:     false,
+		err = s.memberService.CreateMember(ctx, tx, entity.CreateMemberEntity{
+			CompanyUuid: company_uuid,
+			AccountUuid: account_uuid,
+			RoleID:      roleID,
+			IsOwner:     false,
+		})
+		if err != nil {
+			return err
+		}
+
+		payload := map[string]any{
+			"company_uuid": company_uuid,
+			"account_uuid": account_uuid,
+		}
+
+		if err = kafka.EmitOutbox(ctx, tx, kafka.MemberJoined, payload); err != nil {
+			return err
+		}
+
+		return nil
 	})
 
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return &response.ApiError{
-				Status:  409,
-				Message: "Вы уже являетесь участником этой компании",
-			}
-		}
-		return &response.ApiError{
-			Status:  500,
-			Message: "Ошибка при вступлении в компанию",
-			Data:    err,
-		}
+	if err == nil {
+		s.rdb.Del(ctx, keyToken, rdb.GetMembersKey(company_uuid))
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return &response.ApiError{
-			Status:  500,
-			Message: "Ошибка сохранения транзакции",
-			Data:    err,
-		}
-	}
-
-	s.rdb.Del(ctx, key)
-
-	//TODO:
-	//Kafka - create event send token email
-
-	return nil
+	return err
 }
 
 func GenerateSecureToken(length int) (string, error) {

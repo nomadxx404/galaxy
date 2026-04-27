@@ -32,6 +32,20 @@ type CompanyMember struct {
 	IsActive    bool      `json:"is_active"`
 }
 
+type CompanyOutboxEvent struct {
+	MessageUuid string             `json:"message_uuid"`
+	AccountUuid string             `json:"account_uuid"`
+	RequestID   string             `json:"request_id"`
+	EventType   string             `json:"event_type"`
+	Payload     []byte             `json:"payload"`
+	Status      string             `json:"status"`
+	RetryCount  int32              `json:"retry_count"`
+	LastError   pgtype.Text        `json:"last_error"`
+	CreatedAt   time.Time          `json:"created_at"`
+	ProcessedAt pgtype.Timestamptz `json:"processed_at"`
+	LockedUntil pgtype.Timestamptz `json:"locked_until"`
+}
+
 type CompanyPermission struct {
 	CompanyUuid string    `json:"company_uuid"`
 	AccountUuid string    `json:"account_uuid"`

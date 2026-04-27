@@ -2,18 +2,27 @@ package api
 
 import (
 	"companies-service/internal/dto/request"
+	"companies-service/internal/repository/db"
 	_ "companies-service/internal/repository/db"
-	"companies-service/internal/service"
 	"companies-service/pkg/response"
+	"context"
 
 	"github.com/gin-gonic/gin"
 )
 
-type CompanyHandler struct {
-	service *service.CompanyService
+type CompanyManager interface {
+	CreateCompany(ctx context.Context, dbExecutor db.DBTX, req request.CreateCompanyRequest) (db.CreateCompanyRow, error)
+	GetCompanies(ctx context.Context, dbExecutor db.DBTX) ([]db.GetCompaniesRow, error)
+	UpdateCompany(ctx context.Context, dbExecutor db.DBTX, company_uuid string, req request.UpdateCompanyRequest) (db.UpdateCompanyRow, error)
+	GetCompanyByUuid(ctx context.Context, dbExecutor db.DBTX, company_uuid string) (db.GetCompanyByUuidRow, error)
+	DeleteCompany(ctx context.Context, dbExecutor db.DBTX, company_uuid string) error
 }
 
-func NewCompanyHandler(s *service.CompanyService) *CompanyHandler {
+type CompanyHandler struct {
+	service CompanyManager
+}
+
+func NewCompanyHandler(s CompanyManager) *CompanyHandler {
 	return &CompanyHandler{
 		service: s,
 	}
@@ -27,7 +36,7 @@ func (h *CompanyHandler) CreateCompany(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.CreateCompany(c.Request.Context(), req)
+	res, err := h.service.CreateCompany(c.Request.Context(), nil, req)
 
 	if err != nil {
 		response.HandleError(c, err)
@@ -39,7 +48,7 @@ func (h *CompanyHandler) CreateCompany(c *gin.Context) {
 
 func (h *CompanyHandler) GetCompanies(c *gin.Context) {
 
-	res, err := h.service.GetCompanies(c.Request.Context())
+	res, err := h.service.GetCompanies(c.Request.Context(), nil)
 
 	if err != nil {
 		response.HandleError(c, err)
@@ -63,7 +72,7 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.UpdateCompany(c.Request.Context(), company_uuid, req)
+	res, err := h.service.UpdateCompany(c.Request.Context(), nil, company_uuid, req)
 
 	if err != nil {
 		response.HandleError(c, err)
@@ -81,7 +90,7 @@ func (h *CompanyHandler) GetCompanyByUuid(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.GetCompanyByUuid(c.Request.Context(), company_uuid)
+	res, err := h.service.GetCompanyByUuid(c.Request.Context(), nil, company_uuid)
 
 	if err != nil {
 		response.HandleError(c, err)
@@ -99,7 +108,7 @@ func (h *CompanyHandler) DeleteCompany(c *gin.Context) {
 		return
 	}
 
-	err := h.service.DeleteCompany(c.Request.Context(), company_uuid)
+	err := h.service.DeleteCompany(c.Request.Context(), nil, company_uuid)
 
 	if err != nil {
 		response.HandleError(c, err)

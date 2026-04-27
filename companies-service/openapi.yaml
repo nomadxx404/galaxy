@@ -587,7 +587,8 @@ components:
       properties:
         account_uuid:
           type: string
-          format: uuid
+        is_active:
+          type: boolean
         role_id:
           type: integer
         role_name:

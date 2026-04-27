@@ -1,16 +1,14 @@
-﻿using auth_service.DTO.Entity;
-using auth_service.DTO.Request;
+﻿using auth_service.DTO.Request;
 using auth_service.DTO.Response;
 using auth_service.Repositories.Interfaces;
 using Dapper;
 using Npgsql;
-using System.Data;
 
 namespace auth_service.Repositories
 {
     public class AccountRepository : IAccountRepository
     {
-        public async Task<AccountResponse?> GetAccount(string account_uuid, NpgsqlConnection conn)
+        public async Task<AccountResponse?> GetAccount(string account_uuid, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QueryFirstOrDefaultAsync<AccountResponse?>(
                 """
@@ -28,7 +26,7 @@ namespace auth_service.Repositories
                 });
         }
 
-        public async Task<AccountUpdateResponse?> UpdateProfile(string account_uuid, AccountUpdateRequest request, NpgsqlConnection conn)
+        public async Task<AccountUpdateResponse?> UpdateProfile(string account_uuid, AccountUpdateRequest request, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QuerySingleOrDefaultAsync<AccountUpdateResponse?>(
                 """
@@ -51,7 +49,7 @@ namespace auth_service.Repositories
                 });
         }
 
-        public async Task<string> GetCurrentPassword(string account_uuid, NpgsqlConnection conn)
+        public async Task<string> GetCurrentPassword(string account_uuid, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QueryFirstOrDefaultAsync<string>(
                 """
@@ -65,7 +63,7 @@ namespace auth_service.Repositories
                 });
         }
 
-        public async Task ChangePassword(string account_uuid, string passwordHash, NpgsqlConnection conn)
+        public async Task ChangePassword(string account_uuid, string passwordHash, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             await conn.ExecuteAsync(
                 """
@@ -80,7 +78,7 @@ namespace auth_service.Repositories
                 });
         }
 
-        public async Task DeleteAccount(string account_uuid, NpgsqlConnection conn)
+        public async Task DeleteAccount(string account_uuid, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             await conn.ExecuteAsync(
                 """
@@ -94,7 +92,7 @@ namespace auth_service.Repositories
                 });
         }
 
-        public async Task<IEnumerable<AccountBatchResponse>> GetAccountsByUuids(IEnumerable<string> account_uuids, NpgsqlConnection conn)
+        public async Task<IEnumerable<AccountBatchResponse>> GetAccountsByUuids(IEnumerable<string> account_uuids, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QueryAsync<AccountBatchResponse>(
                 """
@@ -106,10 +104,10 @@ namespace auth_service.Repositories
                 FROM auth.account
                 WHERE 
                     account_uuid = ANY(@account_uuids)
-                """, 
-                new 
-                { 
-                    account_uuids = account_uuids.ToArray() 
+                """,
+                new
+                {
+                    account_uuids = account_uuids.ToArray()
                 });
         }
     }
