@@ -89,8 +89,6 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    env_file:
-      - .env
     container_name: auth-service
     depends_on:
       auth-redis:
@@ -108,6 +106,12 @@ services:
       REDIS_HOST: auth-redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD}
+
+      JWT_KEY: ${JWT_KEY}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      JWT_ACCESS_MINUTES: ${JWT_ACCESS_MINUTES}
+      JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS}
 
       PASSWORD_HASHER_MEMORY_SIZE: ${PASSWORD_HASHER_MEMORY_SIZE}
       PASSWORD_HASHER_ITERATIONS: ${PASSWORD_HASHER_ITERATIONS}
@@ -223,6 +227,32 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-service:9092
+    networks:
+      - galaxy-net
+
+  logging-service:
+    build:
+      context: ./logging-service
+      dockerfile: Dockerfile
+    container_name: logging-service
+    environment:
+      LOGS_POSTGRES_HOST: postgres-logs
+      LOGS_POSTGRES_PORT: 5432
+      LOGS_POSTGRES_USER: ${LOGS_POSTGRES_USER}
+      LOGS_POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
+      LOGS_POSTGRES_DB: ${LOGS_POSTGRES_DB}
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka-service:9092
+      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
+      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres-logs:
+        condition: service_healthy
+      kafka-service:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - galaxy-net
 

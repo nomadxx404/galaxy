@@ -6,7 +6,6 @@ create table if not exists log.logs (
     service varchar not null,
     method varchar not null,
     path varchar not null,
-    query varchar not null,
     status int not null,
     account_uuid varchar not null,
     request_id varchar not null,
