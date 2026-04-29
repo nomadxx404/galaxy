@@ -21,7 +21,10 @@ WORKDIR /app
 RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 COPY --from=builder /app/companies-service .
-COPY --from=builder /app/openapi.yaml ./openapi.yaml
+COPY openapi.yaml .
+
+RUN mkdir -p ./static
+COPY openapi.yaml ./static/swagger.json
 
 RUN chown -R appuser:appuser /app
 USER appuser

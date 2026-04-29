@@ -26,6 +26,8 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddInfrastructure();
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
