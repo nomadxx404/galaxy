@@ -1,0 +1,41 @@
+variables:
+  AUTH_IMAGE: "$CI_REGISTRY_IMAGE/auth-service:$CI_COMMIT_SHORT_SHA"
+
+auth-compile:
+  stage: build-check
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  script:
+    - cd auth-service && dotnet build
+  rules:
+    - changes:
+        - auth-service/**/*
+
+auth-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $AUTH_IMAGE ./auth-service
+    - docker push $AUTH_IMAGE
+  needs: ["auth-compile"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - auth-service/**/*
+
+auth-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker run -d --name auth-test -p :8080 $AUTH_IMAGE
+    - sleep 15
+    - docker exec auth-test curl -f http://localhost:8080/health || (docker logs auth-test && exit 1)
+  needs: ["auth-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - auth-service/**/*

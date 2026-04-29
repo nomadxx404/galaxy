@@ -30,6 +30,8 @@ var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
+app.MapHealthChecks("/health");
+
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar");
 

@@ -1,0 +1,44 @@
+variables:
+  COMPANIES_IMAGE: "$CI_REGISTRY_IMAGE/companies-service:$CI_COMMIT_SHORT_SHA"
+
+companies-compile:
+  stage: build-check
+  image: golang:1.25.7-alpine
+  script:
+    - cd companies-service
+    - go mod download
+    - go build -o /dev/null ./main.go
+  rules:
+    - changes:
+        - companies-service/**/*
+
+companies-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $COMPANIES_IMAGE ./companies-service
+    - docker push $COMPANIES_IMAGE
+  needs: ["companies-compile"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - companies-service/**/*
+
+companies-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker run -d --name companies-test -p 8080:8080 $COMPANIES_IMAGE
+    - sleep 5
+    - docker exec companies-test netstat -tuln | grep :8080 || (docker logs companies-test && exit 1)
+    - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
+  needs: ["companies-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - companies-service/**/*
