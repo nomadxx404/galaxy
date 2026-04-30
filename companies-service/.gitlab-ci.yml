@@ -18,7 +18,7 @@ companies-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
     - docker build -t $COMPANIES_IMAGE ./companies-service
     - docker push $COMPANIES_IMAGE
   needs: ["companies-compile"]

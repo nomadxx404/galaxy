@@ -5,7 +5,7 @@ logging-check:
   stage: build-check
   image: python:3.12-slim-bookworm
   script:
-    - pip install --no-cache-dir ruff mypy
+    - pip install --no-cache-dir --root-user-action=ignore ruff mypy
     - ruff check .
     - mypy .
   rules:
@@ -18,7 +18,7 @@ logging-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
     - docker build -t $LOGGING_IMAGE ./logging-python
     - docker push $LOGGING_IMAGE
   needs: ["logging-check"]
