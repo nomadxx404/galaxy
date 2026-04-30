@@ -1,5 +1,5 @@
 variables:
-  COMPANIES_IMAGE: "$CI_REGISTRY_IMAGE/companies-service:$CI_COMMIT_SHORT_SHA"
+  COMPANIES_IMAGE: "$CI_REGISTRY_USER/companies-service:$CI_COMMIT_SHORT_SHA"
 
 companies-compile:
   stage: build-check

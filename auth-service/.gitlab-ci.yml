@@ -1,5 +1,5 @@
 variables:
-  AUTH_IMAGE: "$CI_REGISTRY_IMAGE/auth-service:$CI_COMMIT_SHORT_SHA"
+  AUTH_IMAGE: "$CI_REGISTRY_USER/auth-service:$CI_COMMIT_SHORT_SHA"
 
 auth-compile:
   stage: build-check
