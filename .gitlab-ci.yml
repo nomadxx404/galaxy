@@ -3,13 +3,6 @@ stages:
   - package
   - verify
 
-prepare-infra:
-  stage: verify
-  image: docker:24.0.5
-  services: [docker:24.0.5-dind]
-  script:
-    - docker compose -f docker-compose.infra.yml up -d
-
 include:
   - local: 'auth-service/.gitlab-ci.yml'
   - local: 'companies-service/.gitlab-ci.yml'
