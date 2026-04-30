@@ -60,6 +60,8 @@ auth-health-check:
           fi
         done
       done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
     - docker rm -f auth-test || true
     - |
       docker run -d --name auth-test \

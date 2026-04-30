@@ -62,6 +62,8 @@ logging-health-check:
           fi
         done
       done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
     - docker rm -f logging-test || true
     - |
       docker run -d --name logging-test \
