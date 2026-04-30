@@ -1,7 +1,7 @@
 services:
-  postgres:
+  postgres-ci:
     image: postgres:18-alpine
-    container_name: postgres
+    container_name: postgres-ci
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
@@ -12,9 +12,9 @@ services:
       retries: 5
     networks: [test-net]
 
-  redis:
+  redis-ci:
     image: redis:7-alpine
-    container_name: redis
+    container_name: redis-ci
     command: ["redis-server", "--requirepass", "test"]
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "test", "PING"]
@@ -22,9 +22,9 @@ services:
       retries: 5
     networks: [test-net]
 
-  kafka:
+  kafka-ci:
     image: apache/kafka:4.2.0
-    container_name: kafka
+    container_name: kafka-ci
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller

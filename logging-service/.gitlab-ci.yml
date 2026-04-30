@@ -38,7 +38,7 @@ logging-health-check:
     - docker compose -f docker-compose.infra.yml up -d
     - |
       echo "Waiting for infrastructure to be healthy..."
-      for SVC in postgres redis; do
+      for SVC in postgres-ci redis-ci; do
         echo "Checking $SVC..."
         for i in $(seq 1 20); do
           STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
@@ -65,17 +65,16 @@ logging-health-check:
     - docker rm -f logging-test || true
     - |
       docker run -d --name logging-test \
-      --network galaxy_test_net \
-      -e POSTGRES_HOST=postgres \
-      -e POSTGRES_PORT=5432 \
-      -e POSTGRES_USER=test \
-      -e POSTGRES_PASSWORD=test \
-      -e POSTGRES_DB=test \
-      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
-      -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
-      -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
+        --network galaxy_test_net \
+        -e POSTGRES_HOST=postgres-ci \
+        -e POSTGRES_PORT=5432 \
+        -e POSTGRES_USER=test \
+        -e POSTGRES_PASSWORD=test \
+        -e POSTGRES_DB=test \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
+        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+        -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
       $LOGGING_IMAGE
-    - docker run -d --name logging-test $LOGGING_IMAGE
     - sleep 5
     - docker ps -f name=logging-test | grep Up || (docker logs logging-test && exit 1)
     - docker rm -f logging-test
