@@ -90,6 +90,8 @@ auth-health-check:
       $AUTH_IMAGE
     - sleep 10
     - docker exec auth-test wget --spider -q http://localhost:8080/health || (docker logs auth-test && exit 1)
+  after_script:
+    - docker compose -f docker-compose.infra.yml down -v
   needs: ["auth-docker-build"]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"

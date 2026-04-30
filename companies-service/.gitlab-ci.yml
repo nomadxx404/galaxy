@@ -80,6 +80,8 @@ companies-health-check:
     - sleep 5
     - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
     - docker rm -f companies-test
+  after_script:
+    - docker compose -f docker-compose.infra.yml down -v
   needs: ["companies-docker-build"]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"

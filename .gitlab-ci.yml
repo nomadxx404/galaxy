@@ -2,7 +2,6 @@ stages:
   - build-check
   - package
   - verify
-  - cleanup
 
 prepare-infra:
   stage: verify
@@ -17,9 +16,3 @@ include:
   - local: 'bff-service/.gitlab-ci.yml'
   - local: 'logging-service/.gitlab-ci.yml'
   - local: 'kong/.gitlab-ci.yml'
-
-stop-infra:
-  stage: cleanup
-  script:
-    - docker compose -f docker-compose.infra.yml down
-  when: always

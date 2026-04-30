@@ -78,6 +78,8 @@ logging-health-check:
     - sleep 5
     - docker ps -f name=logging-test | grep Up || (docker logs logging-test && exit 1)
     - docker rm -f logging-test
+  after_script:
+    - docker compose -f docker-compose.infra.yml down -v
   needs: ["logging-docker-build"]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
