@@ -43,4 +43,5 @@ services:
 
 networks:
   test-net:
+    name: galaxy_test_net
     driver: bridge

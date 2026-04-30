@@ -62,8 +62,10 @@ logging-health-check:
           fi
         done
       done
-    - docker rm -f auth-test || true
-    - >
+    - docker rm -f logging-test || true
+    - |
+      docker run -d --name logging-test \
+      --network galaxy_test_net \
       -e POSTGRES_HOST=postgres \
       -e POSTGRES_PORT=5432 \
       -e POSTGRES_USER=test \

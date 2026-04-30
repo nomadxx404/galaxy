@@ -61,7 +61,7 @@ companies-health-check:
         done
       done
     - docker rm -f companies-test || true
-    - >
+    - |
       docker run -d --name companies-test \
         --network galaxy_test_net \
         -e POSTGRES_HOST=postgres \
