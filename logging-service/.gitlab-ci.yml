@@ -69,7 +69,7 @@ logging-health-check:
     - docker rm -f auth-test || true
     - >
       -e POSTGRES_HOST=postgres -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
-      -e KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092 -e KAFKA_AUTH_EVENTS_TOPIC=auth-events -e KAFKA_COMPANY_EVENTS_TOPIC=company-events
+      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 -e KAFKA_AUTH_EVENTS_TOPIC=auth-events -e KAFKA_COMPANY_EVENTS_TOPIC=company-events
       $LOGGING_IMAGE
     - docker run -d --name logging-test $LOGGING_IMAGE
     - sleep 5
