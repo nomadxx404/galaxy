@@ -29,7 +29,8 @@ auth-health-check:
   stage: verify
   image: docker:24.0.5
   services:
-    - docker:24.0.5-dind
+    - name: docker:24.0.5-dind
+      alias: docker
   script:
     - docker rm -f auth-test || true
     - >
