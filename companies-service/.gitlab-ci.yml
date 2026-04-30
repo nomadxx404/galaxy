@@ -1,0 +1,93 @@
+variables:
+  COMPANIES_IMAGE: "$CI_REGISTRY_USER/companies-service:$CI_COMMIT_SHORT_SHA"
+
+companies-compile:
+  stage: build-check
+  image: golang:1.25.7-alpine
+  script:
+    - cd companies-service
+    - go mod download
+    - go build -v -o /dev/null ./cmd/main.go
+  rules:
+    - changes:
+        - companies-service/**/*
+
+companies-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - docker build -t $COMPANIES_IMAGE ./companies-service
+    - docker push $COMPANIES_IMAGE
+  needs: ["companies-compile"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - companies-service/**/*
+
+companies-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  script:
+    - docker compose -f docker-compose.infra.yml up -d
+    - |
+      echo "Waiting for infrastructure to be healthy..."
+      for SVC in postgres-ci redis-ci; do
+        echo "Checking $SVC..."
+        for i in $(seq 1 20); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+          if [ "$STATUS" = "healthy" ]; then
+            echo "SUCCESS: $SVC is ready!"
+            break
+          fi
+          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
+          if [ "$STATE" = "exited" ]; then
+            echo "ERROR: $SVC has crashed!"
+            docker logs "$SVC"
+            exit 1
+          fi
+          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
+          sleep 2
+          if [ "$i" -eq 20 ]; then
+            echo "TIMEOUT: $SVC failed to become healthy"
+            docker logs "$SVC"
+            exit 1
+          fi
+        done
+      done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
+    - docker rm -f companies-test || true
+    - |
+      docker run -d --name companies-test \
+        --network galaxy_test_net \
+        -e POSTGRES_HOST=postgres-ci \
+        -e POSTGRES_PORT=5432 \
+        -e POSTGRES_USER=test \
+        -e POSTGRES_PASSWORD=test \
+        -e POSTGRES_DB=test \
+        -e REDIS_HOST=redis-ci \
+        -e REDIS_PORT=6379 \
+        -e REDIS_PASSWORD=test \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
+        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+        -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
+        -e INVITATION_LINK_ACCESS_MINUTES=5 \
+      $COMPANIES_IMAGE
+    - sleep 5
+    - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
+    - docker rm -f companies-test
+  after_script:
+    - docker rm -f companies-test || true
+    - docker compose -f docker-compose.infra.yml down -v
+  needs: ["companies-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - companies-service/**/*
+

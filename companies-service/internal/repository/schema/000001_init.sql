@@ -56,3 +56,17 @@ create table if not exists company.permissions (
     is_active boolean default true not null,
     primary key (company_uuid, account_uuid, domain)
 );
+
+create table if not exists company.outbox_events (
+    message_uuid varchar primary key not null,
+    account_uuid varchar not null,
+    request_id varchar not null,
+    event_type varchar not null,
+    payload jsonb not null,
+    status varchar(20) default 'PENDING' not null,
+    retry_count int default 0 not null,
+    last_error text,
+    created_at timestamptz default now () not null,
+    processed_at timestamptz,
+    locked_until timestamptz
+);

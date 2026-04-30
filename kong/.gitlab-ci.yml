@@ -1,0 +1,45 @@
+variables:
+  KONG_IMAGE: "kong/kong-gateway:3.14"
+
+kong-validate-config:
+  stage: build-check
+  image: kong/kong-gateway:3.14
+  variables:
+    KONG_DATABASE: "off"
+    KONG_PLUGINS: "bundled,account-uuid-header"
+  script:
+    - mkdir -p /usr/local/share/lua/5.1/kong/plugins/account-uuid-header
+    - cp -r ./kong/plugins/account-uuid-header/* /usr/local/share/lua/5.1/kong/plugins/account-uuid-header/
+    - kong config parse ./kong/kong.yml
+  rules:
+    - changes:
+        - kong/**/*
+
+kong-verify:
+  stage: verify
+  image: docker:24.0.5
+  script:
+    - docker rm -f kong-test || true
+    - |
+      cat <<EOF > Dockerfile.test
+      FROM $KONG_IMAGE
+      COPY ./kong/kong.yml /etc/kong/kong.yml
+      COPY ./kong/plugins/account-uuid-header /usr/local/share/lua/5.1/kong/plugins/account-uuid-header
+      USER root
+      RUN chmod -R 755 /usr/local/share/lua/5.1/kong/plugins/account-uuid-header
+      USER kong
+      EOF
+    - docker build -t kong-test-image -f Dockerfile.test .
+    - >
+      docker run -d --name kong-test
+      -e "KONG_DATABASE=off"
+      -e "KONG_DECLARATIVE_CONFIG=/etc/kong/kong.yml"
+      -e "KONG_PLUGINS=bundled,account-uuid-header"
+      kong-test-image
+    - sleep 5
+    - docker exec kong-test kong health || (docker logs kong-test && exit 1)
+    - docker rm -f kong-test
+  needs: ["kong-validate-config"]
+  rules:
+    - changes:
+        - kong/**/*

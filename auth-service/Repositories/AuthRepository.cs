@@ -8,7 +8,7 @@ namespace auth_service.Repositories
 {
     public class AuthRepository : IAuthRepository
     {
-        public async Task<bool> IsExistEmail(string email, NpgsqlConnection conn)
+        public async Task<bool> IsExistEmail(string email, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QueryFirstOrDefaultAsync<bool>(
                """
@@ -54,48 +54,26 @@ namespace auth_service.Repositories
                     email = model.Email,
                     password_hash = passwordHash,
                     avatar_file_id = model.AvatarFileId
-                });
-        }
+                }, transaction);
+        }        
 
-        public async Task CreateOtpCode(string email, string otp_code, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
+        public async Task<string> VerifiedAccount(string email, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
-            await conn.ExecuteAsync(
-                """
-                INSERT INTO auth.otp_confirm
-                (
-                    email,
-                    otp_code
-                )
-                VALUES
-                (
-                    @email,
-                    @otp_code
-                )
-                """,
-                new
-                {
-                    email = email,
-                    otp_code = otp_code
-                },
-                transaction);
-        }
-
-        public async Task VerifiedAccount(string email, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
-        {
-            await conn.ExecuteAsync(
+            return await conn.QuerySingleOrDefaultAsync<string>(
                 """
                 UPDATE auth.account
                 SET is_verified = true
                 WHERE email = @email
+                RETURNING account_uuid
                 """,
                 new
                 {
                     email = email,
-                });
+                }, transaction);
         }
 
 
-        public async Task<LoginEntity?> GetAccount(string email, NpgsqlConnection conn)
+        public async Task<LoginEntity?> GetAccount(string email, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             return await conn.QueryFirstOrDefaultAsync<LoginEntity?>(
                 """
@@ -113,7 +91,7 @@ namespace auth_service.Repositories
                 });            
         }
 
-        public async Task UpdatePassword(string account_uuid ,string passwordHash, NpgsqlConnection conn)
+        public async Task UpdatePassword(string account_uuid ,string passwordHash, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
         {
             await conn.ExecuteAsync(
                 """
@@ -125,7 +103,22 @@ namespace auth_service.Repositories
                 {
                     account_uuid = account_uuid,
                     password_hash = passwordHash
-                });
+                }, transaction);
+        }
+
+        public async Task<string> GetAccountUuid(string email, NpgsqlConnection conn, NpgsqlTransaction? transaction = null)
+        {
+            return await conn.QueryFirstOrDefaultAsync<string>(
+               """
+               SELECT account_uuid
+               FROM auth.account
+               WHERE 
+                email = @email
+               """,
+               new
+               {
+                   email = email
+               });
         }
     }
 }

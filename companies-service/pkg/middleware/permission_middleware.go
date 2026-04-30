@@ -12,13 +12,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func HasAccess(userMask int64, requiredPermission int64) bool {
-	if userMask == -1 {
-		return true
-	}
-	return (userMask & requiredPermission) != 0
-}
-
 func PermissionMiddleware(
 	store *db.Queries,
 	rdbClient *redis.Client,
@@ -28,12 +21,7 @@ func PermissionMiddleware(
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		account_uuid, err := usercontext.GetAccountUuid(ctx)
-		if account_uuid == "" {
-			response.SendFailure(c, 401, "Сессия не найдена")
-			c.Abort()
-			return
-		}
+		account_uuid := usercontext.GetAccountUuid(ctx)
 
 		company_uuid := c.Param("company_uuid")
 		if company_uuid == "" {
@@ -72,4 +60,11 @@ func PermissionMiddleware(
 
 		c.Next()
 	}
+}
+
+func HasAccess(userMask int64, requiredPermission int64) bool {
+	if userMask == -1 {
+		return true
+	}
+	return (userMask & requiredPermission) != 0
 }

@@ -44,7 +44,7 @@ namespace auth_service.Infrastructure
             var context = _httpContextAccessor.HttpContext;
             if (context == null) return;
 
-            var accessOptions = new CookieOptions
+            var accessOptionsAccess = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
@@ -52,8 +52,16 @@ namespace auth_service.Infrastructure
                 Expires = DateTimeOffset.UtcNow.AddMinutes(_appConfig.JwtConfig.JWT_ACCESS_MINUTES)
             };
 
-            context.Response.Cookies.Append("access_token", accessToken, accessOptions);
-            context.Response.Cookies.Append("refresh_token", refreshToken, accessOptions);
+            var accessOptionsRefresh = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(_appConfig.JwtConfig.JWT_REFRESH_DAYS)
+            };
+
+            context.Response.Cookies.Append("access_token", accessToken, accessOptionsAccess);
+            context.Response.Cookies.Append("refresh_token", refreshToken, accessOptionsRefresh);
         }
     }
 }

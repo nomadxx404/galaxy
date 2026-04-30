@@ -1,0 +1,90 @@
+variables:
+  LOGGING_IMAGE: "$CI_REGISTRY_USER/logging-service:$CI_COMMIT_SHORT_SHA"
+
+logging-check:
+  stage: build-check
+  image: python:3.12-slim-bookworm
+  script:
+    - pip install pydantic pydantic-settings asyncpg fastapi uvicorn aiokafka mypy
+    - cd logging-service
+    - export PYTHONPATH=$PYTHONPATH:.
+    - mypy . --ignore-missing-imports --explicit-package-bases
+  rules:
+    - changes:
+        - logging-service/**/*
+
+logging-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - docker build -t $LOGGING_IMAGE ./logging-service
+    - docker push $LOGGING_IMAGE
+  needs: ["logging-check"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - logging-service/**/*
+
+logging-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  script:
+    - docker compose -f docker-compose.infra.yml up -d
+    - |
+      echo "Waiting for infrastructure to be healthy..."
+      for SVC in postgres-ci redis-ci; do
+        echo "Checking $SVC..."
+        for i in $(seq 1 20); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+          if [ "$STATUS" = "healthy" ]; then
+            echo "SUCCESS: $SVC is ready!"
+            break
+          fi
+          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
+          if [ "$STATE" = "exited" ]; then
+            echo "ERROR: $SVC has crashed!"
+            docker logs "$SVC"
+            exit 1
+          fi
+          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
+          sleep 2
+
+          if [ "$i" -eq 20 ]; then
+            echo "TIMEOUT: $SVC failed to become healthy"
+            docker logs "$SVC"
+            exit 1
+          fi
+        done
+      done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
+    - docker rm -f logging-test || true
+    - |
+      docker run -d --name logging-test \
+        --network galaxy_test_net \
+        -e LOGS_POSTGRES_HOST=postgres-ci \
+        -e LOGS_POSTGRES_PORT=5432 \
+        -e LOGS_POSTGRES_USER=test \
+        -e LOGS_POSTGRES_PASSWORD=test \
+        -e LOGS_POSTGRES_DB=test \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
+        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+        -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
+      $LOGGING_IMAGE
+    - sleep 5
+    - docker ps -f name=logging-test | grep Up || (docker logs logging-test && exit 1)
+    - docker rm -f logging-test
+  after_script:
+    - docker rm -f logging-test || true
+    - docker compose -f docker-compose.infra.yml down -v
+  needs: ["logging-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - logging-service/**/*

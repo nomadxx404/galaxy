@@ -19,6 +19,11 @@ services:
       KONG_PLUGINS: "bundled,account-uuid-header"
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
       - ./kong/plugins/account-uuid-header:/usr/local/share/lua/5.1/kong/plugins/account-uuid-header:ro
@@ -89,8 +94,6 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    env_file:
-      - .env
     container_name: auth-service
     depends_on:
       auth-redis:
@@ -109,6 +112,12 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD}
 
+      JWT_KEY: ${JWT_KEY}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      JWT_ACCESS_MINUTES: ${JWT_ACCESS_MINUTES}
+      JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS}
+
       PASSWORD_HASHER_MEMORY_SIZE: ${PASSWORD_HASHER_MEMORY_SIZE}
       PASSWORD_HASHER_ITERATIONS: ${PASSWORD_HASHER_ITERATIONS}
       PASSWORD_HASHER_DEGREE_OF_PARALLELISM: ${PASSWORD_HASHER_DEGREE_OF_PARALLELISM}
@@ -118,8 +127,16 @@ services:
       OTP_CODE_ACCESS_MINUTES: ${OTP_CODE_ACCESS_MINUTES}
 
       RESET_PASSWORD_TOKEN_ACCESS_MINUTES: ${RESET_PASSWORD_TOKEN_ACCESS_MINUTES}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
     ports:
-      - ":8080"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
     networks:
       - galaxy-net
@@ -146,19 +163,30 @@ services:
       dockerfile: Dockerfile
     container_name: companies-service
     environment:
-      - GIN_MODE=release
+      GIN_MODE: release
 
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
 
-      - REDIS_HOST=companies-redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${COMPANIES_REDIS_PASSWORD}
+      REDIS_HOST: companies-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${COMPANIES_REDIS_PASSWORD}
+
+      INVITATION_LINK_ACCESS_MINUTES: ${INVITATION_LINK_ACCESS_MINUTES}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
+      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
     ports:
-      - "8080:8080"
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -184,6 +212,72 @@ services:
     networks:
       - galaxy-net
 
+  kafka-service:
+    image: apache/kafka:4.2.0
+    container_name: kafka-service
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-service:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-service:9093
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    networks:
+      - galaxy-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-service:9092
+    networks:
+      - galaxy-net
+
+  logging-service:
+    build:
+      context: ./logging-service
+      dockerfile: Dockerfile
+    container_name: logging-service
+    environment:
+      LOGS_POSTGRES_HOST: postgres-logs
+      LOGS_POSTGRES_PORT: 5432
+      LOGS_POSTGRES_USER: ${LOGS_POSTGRES_USER}
+      LOGS_POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
+      LOGS_POSTGRES_DB: ${LOGS_POSTGRES_DB}
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka-service:9092
+      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
+      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
+    ports:
+      - "8003:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f main.py || exit 1"]
+      interval: 10s
+    depends_on:
+      postgres-logs:
+        condition: service_healthy
+      kafka-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - galaxy-net
 
 volumes:
   pgdata-galaxy:

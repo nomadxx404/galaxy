@@ -8,10 +8,11 @@ import (
 )
 
 type Response struct {
-	Success bool        `json:"success"`
-	Status  int         `json:"status"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+	Success   bool        `json:"success"`
+	Status    int         `json:"status"`
+	Message   string      `json:"message,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
+	RequestId string      `json:"request_id,omitempty"`
 }
 
 func Success(status int, data interface{}, message string) Response {

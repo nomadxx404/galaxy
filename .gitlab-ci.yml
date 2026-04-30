@@ -1,0 +1,11 @@
+stages:
+  - build-check
+  - package
+  - verify
+
+include:
+  - local: 'auth-service/.gitlab-ci.yml'
+  - local: 'companies-service/.gitlab-ci.yml'
+  - local: 'bff-service/.gitlab-ci.yml'
+  - local: 'logging-service/.gitlab-ci.yml'
+  - local: 'kong/.gitlab-ci.yml'

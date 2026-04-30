@@ -2,18 +2,24 @@ package api
 
 import (
 	"companies-service/internal/dto/request"
-	"companies-service/internal/service"
+	"companies-service/internal/repository/db"
 	"companies-service/pkg/middleware"
 	"companies-service/pkg/response"
+	"context"
 
 	"github.com/gin-gonic/gin"
 )
 
-type InvitationHandler struct {
-	service *service.InvitationService
+type InvitationManager interface {
+	CreateInvitation(ctx context.Context, dbExecutor db.DBTX, company_uuid string, req request.CreateInvitationRequest) error
+	AcceptInvitation(ctx context.Context, dbExecutor db.DBTX, token string) error
 }
 
-func NewInvitationHandler(s *service.InvitationService) *InvitationHandler {
+type InvitationHandler struct {
+	service InvitationManager
+}
+
+func NewInvitationHandler(s InvitationManager) *InvitationHandler {
 	return &InvitationHandler{
 		service: s,
 	}
@@ -31,7 +37,7 @@ func (h *InvitationHandler) CreateInvitation(c *gin.Context) {
 		return
 	}
 
-	err := h.service.CreateInvitation(c.Request.Context(), company_uuid, *req)
+	err := h.service.CreateInvitation(c.Request.Context(), nil, company_uuid, *req)
 	if err != nil {
 		response.HandleError(c, err)
 		return
@@ -47,7 +53,7 @@ func (h *InvitationHandler) AcceptInvitation(c *gin.Context) {
 		return
 	}
 
-	err := h.service.AcceptInvitation(c.Request.Context(), tokenUrl)
+	err := h.service.AcceptInvitation(c.Request.Context(), nil, tokenUrl)
 	if err != nil {
 		response.HandleError(c, err)
 		return

@@ -26,9 +26,13 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddInfrastructure();
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
+
+app.MapHealthChecks("/health");
 
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar");

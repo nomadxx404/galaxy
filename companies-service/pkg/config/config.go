@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"sync"
 
@@ -10,8 +9,10 @@ import (
 )
 
 type Config struct {
-	Postgres PostgresConfig
-	Redis    RedisConfig
+	Postgres   PostgresConfig
+	Redis      RedisConfig
+	Kafka      KafkaConfig
+	Invitation InvitationConfig
 }
 
 type PostgresConfig struct {
@@ -28,6 +29,16 @@ type RedisConfig struct {
 	REDIS_PASSWORD string `env:"REDIS_PASSWORD"`
 }
 
+type KafkaConfig struct {
+	BROKERS           string `env:"KAFKA_BOOTSTRAP_SERVERS"`
+	EVENTS_TOPIC      string `env:"KAFKA_COMPANY_EVENTS_TOPIC"`
+	EVENTS_TOPIC_AUTH string `env:"KAFKA_AUTH_EVENTS_TOPIC"`
+}
+
+type InvitationConfig struct {
+	INVITATION_LINK_ACCESS_MINUTES int `env:"INVITATION_LINK_ACCESS_MINUTES"`
+}
+
 var (
 	instance *Config
 	once     sync.Once
@@ -37,10 +48,7 @@ func GetConfig() *Config {
 	once.Do(func() {
 		instance = &Config{}
 		_ = cleanenv.ReadConfig(".env", instance)
-
-		if err := cleanenv.ReadEnv(instance); err != nil {
-			log.Printf("failed to read env: %v", err)
-		}
+		cleanenv.ReadEnv(instance)
 	})
 	return instance
 }

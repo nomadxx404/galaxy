@@ -8,6 +8,11 @@ import (
 )
 
 func (a *App) RegisterRoutes() {
+
+	a.Router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "OK"})
+	})
+
 	docs := a.Router.Group("/ui")
 	{
 		docs.StaticFile("/openapi.json", "./static/swagger.json")
@@ -25,7 +30,7 @@ func (a *App) RegisterRoutes() {
 	}
 
 	v1 := a.Router.Group("/api/ui")
-	v1.Use(middleware.ContextInterceptor())
+	v1.Use(middleware.ContextMiddleware())
 	{
 		companies := v1.Group("/companies")
 		{

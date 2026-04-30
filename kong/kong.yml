@@ -1,6 +1,13 @@
 _format_version: "3.0"
 _transform: true
 
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
 services:
   - name: bff-service
     url: http://bff-service:8080
@@ -19,6 +26,23 @@ services:
           cookie_names:
             - access_token
       - name: account-uuid-header
+      - name: cors
+        config:
+          origins:
+            - http://localhost:8000
+            # - http://localhost:8080 front
+          methods: [GET, OPTIONS]
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - Origin
+            - X-Request-ID
+          exposed_headers:
+            - Set-Cookie
+          credentials: true
+          max_age: 3600
+
 
   - name: auth-service
     url: http://auth-service:8080
@@ -28,9 +52,7 @@ services:
           - /auth
           - /scalar
         strip_path: true
-        protocols:
-          - http
-          - https
+        protocols: [http, https]
 
       - name: auth-public-api-route
         paths:
@@ -42,9 +64,7 @@ services:
           - /api/auth/reset-password
           - /api/auth/refresh-token
         strip_path: false
-        protocols:
-          - http
-          - https
+        protocols: [http, https]
 
       - name: auth-protected-route
         paths:
@@ -52,9 +72,7 @@ services:
           - /api/auth/logout
           - /api/auth/full-logout
         strip_path: false
-        protocols:
-          - http
-          - https
+        protocols: [http, https]
         plugins:
           - name: jwt
             config:
@@ -67,18 +85,13 @@ services:
           origins:
             - http://localhost:8000
             # - http://localhost:8080 front
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
           headers:
             - Accept
             - Authorization
             - Content-Type
             - Origin
+            - X-Request-ID
           exposed_headers:
             - Set-Cookie
           credentials: true
@@ -91,9 +104,7 @@ services:
         paths:
           - /companies
         strip_path: false
-        protocols:
-          - http
-          - https
+        protocols: [http, https]
 
       - name: companies-protected-route
         paths:
@@ -101,9 +112,7 @@ services:
           - /api/invitations
           - /api/permission
         strip_path: false
-        protocols:
-          - http
-          - https
+        protocols: [http, https]
         plugins:
           - name: jwt
             config:
@@ -116,18 +125,13 @@ services:
           origins:
             # - http://localhost:8080 front
             - http://localhost:8000
-          methods:
-            - GET
-            - POST
-            - PUT
-            - PATCH
-            - DELETE
-            - OPTIONS
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
           headers:
             - Accept
             - Authorization
             - Content-Type
             - Origin
+            - X-Request-ID
           exposed_headers:
             - Set-Cookie
           credentials: true

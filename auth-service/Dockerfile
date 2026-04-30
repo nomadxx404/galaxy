@@ -1,23 +1,41 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
-USER $APP_UID
-WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
-
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-ARG BUILD_CONFIGURATION=Release
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
-COPY ["auth-service.csproj", "."]
-RUN dotnet restore "./auth-service.csproj"
+
+COPY ["auth-service.csproj", "./"]
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "auth-service.csproj" \
+    -r linux-x64 \
+    -p:PublishReadyToRun=true
+
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "./auth-service.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./auth-service.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet publish "auth-service.csproj" \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    -r linux-x64 \
+    --self-contained false \
+    -p:PublishReadyToRun=true \
+    -p:DebugType=None \
+    -p:DebugSymbols=false
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS final
 WORKDIR /app
-COPY --from=publish /app/publish .
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/publish .
+
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    PYTHONUNBUFFERED=1
+
+USER app
+
+EXPOSE 8080
+
 ENTRYPOINT ["dotnet", "auth-service.dll"]

@@ -26,3 +26,7 @@ func ToBool(b *bool) pgtype.Bool {
 	}
 	return pgtype.Bool{Bool: *b, Valid: true}
 }
+
+func Pointer[T any](v T) *T {
+	return &v
+}

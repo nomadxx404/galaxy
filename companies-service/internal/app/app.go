@@ -6,6 +6,7 @@ import (
 	"companies-service/internal/service"
 	"companies-service/pkg/config"
 	"companies-service/pkg/data"
+	"companies-service/pkg/kafka/worker"
 	"context"
 	"log"
 
@@ -19,12 +20,15 @@ type App struct {
 	Pool              *pgxpool.Pool
 	Rdb               *redis.Client
 	Store             *db.Queries
+	txManager         *data.TransactionManager
 	Router            *gin.Engine
 	CompanyHandler    *api.CompanyHandler
 	RoleHandler       *api.RoleHandler
 	InvitationHandler *api.InvitationHandler
 	MemberHandler     *api.MemberHandler
 	PermissionHandler *api.PermissionHandler
+	Producer          *worker.Producer
+	Consumer          *worker.Consumer
 }
 
 func NewApp(ctx context.Context) (*App, func()) {
@@ -41,14 +45,18 @@ func NewApp(ctx context.Context) (*App, func()) {
 	}
 
 	q := db.New(pool)
+	txManager := data.NewTransactionManager(pool)
 
-	compService := service.NewCompanyService(q, rdb, pool)
-	roleService := service.NewRoleService(q, rdb, pool)
-	invitationService := service.NewInvitationService(q, rdb, pool)
-	membersService := service.NewMemberService(q, rdb, pool)
-	permissionService := service.NewPermissionService(q, rdb, pool)
+	roleService := service.NewRoleService(rdb, pool, txManager)
+	permissionService := service.NewPermissionService(rdb, pool, txManager)
+	membersService := service.NewMemberService(rdb, pool, txManager, permissionService)
+	invitationService := service.NewInvitationService(rdb, pool, txManager, cfg, roleService, membersService)
+	companyService := service.NewCompanyService(rdb, pool, txManager, membersService, roleService, permissionService)
 
-	compHandler := api.NewCompanyHandler(compService)
+	producer := worker.NewRelay(pool, q, cfg)
+	consumer := worker.NewConsumer(companyService, cfg, pool, txManager)
+
+	compHandler := api.NewCompanyHandler(companyService)
 	roleHandler := api.NewRoleHandler(roleService)
 	invitationHandler := api.NewInvitationHandler(invitationService)
 	memberHandler := api.NewMemberHandler(membersService)
@@ -69,18 +77,28 @@ func NewApp(ctx context.Context) (*App, func()) {
 		Pool:              pool,
 		Rdb:               rdb,
 		Store:             q,
+		txManager:         txManager,
 		Router:            router,
 		CompanyHandler:    compHandler,
 		RoleHandler:       roleHandler,
 		InvitationHandler: invitationHandler,
 		MemberHandler:     memberHandler,
 		PermissionHandler: permissionHandler,
+		Producer:          producer,
+		Consumer:          consumer,
 	}, closeFunc
 }
 
-func (a *App) Run() error {
+func (a *App) Run(ctx context.Context) error {
 	a.RegisterRoutes()
 
+	go a.Producer.Run(ctx)
+	log.Println("Background workers started")
+
+	go a.Consumer.Run(ctx)
+	log.Println("Background consumer started")
+
 	serverAddr := ":8080"
+	log.Printf("Starting server on %s", serverAddr)
 	return a.Router.Run(serverAddr)
 }

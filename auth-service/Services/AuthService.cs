@@ -1,6 +1,7 @@
 ﻿using auth_service.Config;
 using auth_service.Data;
 using auth_service.Infrastructure;
+using auth_service.Infrastructure.Kafka;
 using auth_service.Models.Request;
 using auth_service.Repositories.Interfaces;
 using auth_service.Services.Interfaces;
@@ -13,6 +14,7 @@ namespace auth_service.Services
         private readonly RedisConnection _connRedis;
         private readonly AppConfig _appConfig;
         private readonly IAuthRepository _authRepository;
+        private readonly IOutboxEmitter _outboxEmitter;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtProvider _jwtProvider;
         private readonly ICookieProvider _cookieProvider;
@@ -23,6 +25,7 @@ namespace auth_service.Services
             RedisConnection connRedis,
             AppConfig appConfig,
             IAuthRepository authRepository,
+            IOutboxEmitter outboxEmitter,
             IPasswordHasher passwordHasher,
             IJwtProvider jwtProvider,
             ICookieProvider cookieProvider,
@@ -32,6 +35,7 @@ namespace auth_service.Services
             _connRedis = connRedis;
             _appConfig = appConfig;
             _authRepository = authRepository;
+            _outboxEmitter = outboxEmitter;
             _passwordHasher = passwordHasher;
             _jwtProvider = jwtProvider;
             _cookieProvider = cookieProvider;
@@ -40,24 +44,42 @@ namespace auth_service.Services
 
         public async Task<Result<EmailResponse>> Register(AccountCreateRequest accountCreateRequest)
         {
-            var conn = await _conn.OpenConnectionAsync();
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
 
-            bool isExistEmail = await _authRepository.IsExistEmail(email: accountCreateRequest.Email, conn);
+            bool isExistEmail = await _authRepository.IsExistEmail(
+                email: accountCreateRequest.Email,
+                conn: conn,
+                transaction: transaction);
 
             if (!isExistEmail)
                 return Result<EmailResponse>.Failure(409, "Аккаунт с такой почтой уже существует");
 
-
+            string account_uuid = Guid.CreateVersion7().ToString();
             await _authRepository.AccountCreate(
-                account_uuid: Guid.CreateVersion7().ToString(),
+                account_uuid: account_uuid,
                 password_hash: _passwordHasher.HashPassword(accountCreateRequest.Password),
                 model: accountCreateRequest,
-                conn: conn);
+                conn: conn,
+                transaction: transaction);
 
-            await SaveAndSendOtp(accountCreateRequest.Email);
+            string otpCode = await SaveAndSendOtp(accountCreateRequest.Email);
 
-            //TODO: 
-            //Kafka - create event send code email
+            var payload = new
+            {
+                account_uuid = account_uuid,
+                email = accountCreateRequest.Email,
+                otp_code = otpCode
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.Register,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: account_uuid);
+
+            await transaction.CommitAsync();
 
             return Result<EmailResponse>.Success(201, "Аккаунт создан, код верификации отправлен на почту", new EmailResponse(accountCreateRequest.Email));
         }
@@ -75,31 +97,72 @@ namespace auth_service.Services
                 return Result<EmailResponse>.Failure(404, "Неверный код");
 
             await _connRedis.Database.KeyDeleteAsync(keyRedis);
-            await _authRepository.VerifiedAccount(
-                email: otpConfirmRequest.Email, 
-                conn: await _conn.OpenConnectionAsync());
 
-            //TODO: 
-            //Kafka - create event for loggin
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
+            string account_uuid = await _authRepository.VerifiedAccount(
+                email: otpConfirmRequest.Email,
+                conn: conn,
+                transaction: transaction);
+
+            var payload = new
+            {
+                account_uuid = account_uuid
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.OtpConfirm,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: account_uuid);
+
+            await transaction.CommitAsync();
 
             return Result<EmailResponse>.Success(200, "Аккаунт успешно верифицирован", new EmailResponse(otpConfirmRequest.Email));
         }
 
         public async Task<Result<EmailResponse>> ResetOtpConfirm(EmailRequest emailRequest)
         {
-            await SaveAndSendOtp(emailRequest.Email);
+            string otpCode = await SaveAndSendOtp(emailRequest.Email);
 
-            //TODO: 
-            //Kafka - create event for loggin
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
+            string account_uuid = await _authRepository.GetAccountUuid(
+                email: emailRequest.Email,
+                conn: conn,
+                transaction: transaction);
+
+            var payload = new
+            {
+                account_uuid = account_uuid,
+                email = emailRequest.Email,
+                otp_code = otpCode
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.ResetOtpConfirm,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: account_uuid);
+
+            await transaction.CommitAsync();
 
             return Result<EmailResponse>.Success(200, "Код отправлен", new EmailResponse(emailRequest.Email));
         }
 
         public async Task<Result<string>> Login(LoginRequest loginRequest)
         {
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
             var account = await _authRepository.GetAccount(
-                email: loginRequest.Email, 
-                conn: await _conn.OpenConnectionAsync());
+                email: loginRequest.Email,
+                conn: conn,
+                transaction: transaction);
 
             if (account == null || !_passwordHasher.VerifyPassword(loginRequest.Password, account.Password_hash))
                 return Result<string>.Failure(403, "Неверный логин или пароль");
@@ -112,14 +175,42 @@ namespace auth_service.Services
             if (!tokenResult.IsSuccess)
                 return tokenResult;
 
-            //TODO: 
-            //Kafka - create event for loggin
+            var payload = new
+            {
+                account_uuid = account.Account_uuid,
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.Login,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: account.Account_uuid);
+
+            await transaction.CommitAsync();
 
             return Result<string>.Success(200, "Выполнен вход");
         }
 
         public async Task<Result<string>> Logout()
         {
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
+            var payload = new
+            {
+                account_uuid = _userContext.Account_uuid,
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.Logout,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: _userContext.Account_uuid);
+
+            await transaction.CommitAsync();
+
             string refreshKey = $"auth:refresh:{_userContext.RefreshToken}";
             string userSessionsKey = $"auth:sessions:{_userContext.Account_uuid}";
 
@@ -133,14 +224,28 @@ namespace auth_service.Services
 
             _cookieProvider.ClearAuthCookies();
 
-            //TODO: 
-            //Kafka - create event for loggin
-
             return Result<string>.Success(200, "Выполнен выход");
         }
 
         public async Task<Result<string>> FullLogout()
         {
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
+            var payload = new
+            {
+                account_uuid = _userContext.Account_uuid,
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.FullLogout,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: _userContext.Account_uuid);
+
+            await transaction.CommitAsync();
+
             string userSessionsKey = $"auth:sessions:{_userContext.Account_uuid}";
 
             var allTokens = await _connRedis.Database.SetMembersAsync(userSessionsKey);
@@ -186,29 +291,42 @@ namespace auth_service.Services
             if (!tokenResult.IsSuccess)
                 return tokenResult;
 
-            //TODO: 
-            //Kafka - create event for loggin
-
             return Result<string>.Success(200, "");
         }
 
 
         public async Task<Result<string>> ForgotPassword(EmailRequest emailRequest)
-        {            
-            var account = await _authRepository.GetAccount(
-                email: emailRequest.Email, 
-                conn: await _conn.OpenConnectionAsync());
+        {
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
 
-            if (account == null)
+            string account_uuid = await _authRepository.GetAccountUuid(
+                email: emailRequest.Email,
+                conn: conn,
+                transaction: transaction);
+
+            if (account_uuid == null)
                 return Result<string>.Failure(404, "Аккаунт с такой почтой не найден");
 
             string resetToken = Guid.NewGuid().ToString("N");
             string resetKey = $"auth:reset:{resetToken}";
 
-            await _connRedis.Database.StringSetAsync(resetKey, account.Account_uuid, TimeSpan.FromMinutes(_appConfig.AuthConfig.RESET_PASSWORD_TOKEN_ACCESS_MINUTES));
+            await _connRedis.Database.StringSetAsync(resetKey, account_uuid, TimeSpan.FromMinutes(_appConfig.AuthConfig.RESET_PASSWORD_TOKEN_ACCESS_MINUTES));
 
-            //TODO: 
-            //Kafka - create event send token email
+
+            var payload = new
+            {
+                account_uuid = account_uuid,
+            };
+
+            await _outboxEmitter.EmitOutbox(
+                eventType: Events.ForgotPassword,
+                payload: payload,
+                conn: conn,
+                transaction: transaction,
+                account_uuid: account_uuid);
+
+            await transaction.CommitAsync();
 
             return Result<string>.Success(200, "Ссылка для восстановления пароля отправдена на почту");
         }
@@ -223,10 +341,28 @@ namespace auth_service.Services
             if (account_uuid.IsNull)
                 return Result<string>.Failure(410, "Срок действия ссылки истек или она недействительна");
 
+            using var conn = await _conn.OpenConnectionAsync();
+            using var transaction = await conn.BeginTransactionAsync();
+
             await _authRepository.UpdatePassword(
-                account_uuid: account_uuid.ToString(), 
+                account_uuid: account_uuid.ToString(),
                 passwordHash: _passwordHasher.HashPassword(resetPasswordRequest.NewPassword),
-                conn: await _conn.OpenConnectionAsync());
+                conn: conn,
+                transaction: transaction);
+
+            var payload = new
+            {
+                account_uuid = account_uuid,
+            };
+
+            await _outboxEmitter.EmitOutbox(
+               eventType: Events.ResetPassword,
+               payload: payload,
+               conn: conn,
+               transaction: transaction,
+               account_uuid: account_uuid);
+
+            await transaction.CommitAsync();
 
             string userSessionsKey = $"auth:sessions:{account_uuid}";
 
@@ -242,18 +378,17 @@ namespace auth_service.Services
             batch.KeyDeleteAsync(resetKey);
             batch.Execute();
 
-            //TODO: 
-            //Kafka - create event for loggin
-
             return Result<string>.Success(200, "Пароль успешно изменен. Войдите с новым паролем");
         }
 
-        private async Task SaveAndSendOtp(string email)
+        private async Task<string> SaveAndSendOtp(string email)
         {
+            string otpCode = CodeGenerator.GenerateSixDigitCode();
             await _connRedis.Database.StringSetAsync(
                 $"auth:otp:email_verify:{email}",
-                CodeGenerator.GenerateSixDigitCode(),
+                otpCode,
                 TimeSpan.FromMinutes(_appConfig.AuthConfig.OTP_CODE_ACCESS_MINUTES));
+            return otpCode;
         }
 
         private async Task<Result<string>> IssueTokens(string account_uuid)
@@ -280,7 +415,7 @@ namespace auth_service.Services
 
                 return Result<string>.Success(200, "");
             }
-            catch (Exception ex)
+            catch
             {
                 return Result<string>.Failure(500, "Ошибка сервера при создании сессии");
             }

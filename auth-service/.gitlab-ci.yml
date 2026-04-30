@@ -1,0 +1,103 @@
+variables:
+  AUTH_IMAGE: "$CI_REGISTRY_USER/auth-service:$CI_COMMIT_SHORT_SHA"
+
+auth-compile:
+  stage: build-check
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  script:
+    - cd auth-service && dotnet build
+  rules:
+    - changes:
+        - auth-service/**/*
+
+auth-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - docker build -t $AUTH_IMAGE ./auth-service
+    - docker push $AUTH_IMAGE
+  needs: ["auth-compile"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - auth-service/**/*
+
+auth-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  script:
+    - docker compose -f docker-compose.infra.yml up -d
+    - |
+      echo "Waiting for infrastructure to be healthy..."
+      for SVC in postgres-ci redis-ci; do
+        echo "Checking $SVC..."
+        for i in $(seq 1 20); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+          if [ "$STATUS" = "healthy" ]; then
+            echo "SUCCESS: $SVC is ready!"
+            break
+          fi
+          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
+          if [ "$STATE" = "exited" ]; then
+            echo "ERROR: $SVC has crashed!"
+            docker logs "$SVC"
+            exit 1
+          fi
+
+          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
+          sleep 2
+
+          if [ "$i" -eq 20 ]; then
+            echo "TIMEOUT: $SVC failed to become healthy"
+            docker logs "$SVC"
+            exit 1
+          fi
+        done
+      done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
+    - docker rm -f auth-test || true
+    - |
+      docker run -d --name auth-test \
+        --network galaxy_test_net \
+        -e ASPNETCORE_ENVIRONMENT=Development \
+        -e POSTGRES_HOST=postgres-ci \
+        -e POSTGRES_PORT=5432 \
+        -e POSTGRES_USER=test \
+        -e POSTGRES_PASSWORD=test \
+        -e POSTGRES_DB=test \
+        -e REDIS_HOST=redis-ci \
+        -e REDIS_PORT=6379 \
+        -e REDIS_PASSWORD=test \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
+        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+        -e JWT_KEY=super-secret-key-at-least-32-chars-long!! \
+        -e JWT_ISSUER=test \
+        -e JWT_AUDIENCE=test \
+        -e JWT_ACCESS_MINUTES=15 \
+        -e JWT_REFRESH_DAYS=7 \
+        -e PASSWORD_HASHER_MEMORY_SIZE=65536 \
+        -e PASSWORD_HASHER_ITERATIONS=4 \
+        -e PASSWORD_HASHER_DEGREE_OF_PARALLELISM=1 \
+        -e PASSWORD_HASHER_SALT_LENGTH=16 \
+        -e PASSWORD_HASHER_HASH_LENGTH=32 \
+        -e OTP_CODE_ACCESS_MINUTES=5 \
+        -e RESET_PASSWORD_TOKEN_ACCESS_MINUTES=15 \
+      $AUTH_IMAGE
+    - sleep 10
+    - docker exec auth-test curl -f http://localhost:8080/health || (docker logs auth-test && exit 1)
+  after_script:
+    - docker rm -f auth-test || true
+    - docker compose -f docker-compose.infra.yml down -v
+  needs: ["auth-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - auth-service/**/*
+
