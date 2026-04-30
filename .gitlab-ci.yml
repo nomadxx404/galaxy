@@ -2,6 +2,15 @@ stages:
   - build-check
   - package
   - verify
+  - cleanup
+
+prepare-infra:
+  stage: verify
+  image: docker:24.0.5
+  services: [docker:24.0.5-dind]
+  script:
+    - docker compose -f docker-compose.infra.yml up -d
+  tags: [docker]
 
 include:
   - local: 'auth-service/.gitlab-ci.yml'
@@ -9,3 +18,9 @@ include:
   - local: 'bff-service/.gitlab-ci.yml'
   - local: 'logging-service/.gitlab-ci.yml'
   - local: 'kong/.gitlab-ci.yml'
+
+stop-infra:
+  stage: cleanup
+  script:
+    - docker compose -f docker-compose.infra.yml down
+  when: always

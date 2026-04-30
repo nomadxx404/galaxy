@@ -32,20 +32,40 @@ auth-health-check:
     - name: docker:24.0.5-dind
       alias: docker
   script:
+    - cd ..
+    - docker compose -f docker-compose.infra.yml up -d
+    - |
+      echo "Waiting for infrastructure to be healthy..."
+      SERVICES=("postgres" "auth-redis")
+      for SVC in "${SERVICES[@]}"; do
+        echo "Checking $SVC..."
+        for i in {1..20}; do
+          STATUS=$(docker inspect -f {{.State.Health.Status}} $SVC 2>/dev/null || echo "starting")
+          if [ "$STATUS" == "healthy" ]; then
+            echo "$SVC is ready!"
+            break
+          fi
+          echo "Still waiting for $SVC (current status: $STATUS)..."
+          sleep 2
+          if [ $i -eq 20 ]; then echo "$SVC failed to start"; docker logs $SVC; exit 1; fi
+        done
+      done
     - docker rm -f auth-test || true
     - >
       docker run -d --name auth-test
+      --network galaxy_test_net
       -e ASPNETCORE_ENVIRONMENT=Development
-      -e ASPNETCORE_URLS=http://+:8080
-      -e KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-      -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
-      -e REDIS_HOST=localhost -e REDIS_PORT=6379 -e REDIS_PASSWORD=test
+
+      -e POSTGRES_HOST=postgres -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
+      -e REDIS_HOST=redis -e REDIS_PORT=6379 -e REDIS_PASSWORD=test
+      -e KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092
+      -e KAFKA_AUTH_EVENTS_TOPIC=auth-events
+
       -e JWT_KEY=super-secret-key-at-least-32-chars-long!!
       -e JWT_ISSUER=test -e JWT_AUDIENCE=test -e JWT_ACCESS_MINUTES=15 -e JWT_REFRESH_DAYS=7
       -e PASSWORD_HASHER_MEMORY_SIZE=65536 -e PASSWORD_HASHER_ITERATIONS=4 -e PASSWORD_HASHER_DEGREE_OF_PARALLELISM=1
       -e PASSWORD_HASHER_SALT_LENGTH=16 -e PASSWORD_HASHER_HASH_LENGTH=32
       -e OTP_CODE_ACCESS_MINUTES=5 -e RESET_PASSWORD_TOKEN_ACCESS_MINUTES=15
-      -e KAFKA_AUTH_EVENTS_TOPIC=auth-events
       $AUTH_IMAGE
     - sleep 10
     - docker exec auth-test wget --spider -q http://localhost:8080/health || (docker logs auth-test && exit 1)
