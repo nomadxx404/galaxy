@@ -33,22 +33,38 @@ auth-health-check:
       alias: docker
   script:
     - docker compose -f docker-compose.infra.yml up -d
+
     - |
       echo "Waiting for infrastructure to be healthy..."
       SERVICES=("postgres" "auth-redis")
       for SVC in "${SERVICES[@]}"; do
         echo "Checking $SVC..."
-        for i in {1..20}; do
-          STATUS=$(docker inspect -f {{.State.Health.Status}} $SVC 2>/dev/null || echo "starting")
+        for i in $(seq 1 20); do
+          # Проверяем статус здоровья
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
           if [ "$STATUS" == "healthy" ]; then
-            echo "$SVC is ready!"
+            echo "SUCCESS: $SVC is ready!"
             break
           fi
-          echo "Still waiting for $SVC (current status: $STATUS)..."
+
+          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
+          if [ "$STATE" == "exited" ]; then
+            echo "ERROR: $SVC has crashed!"
+            docker logs "$SVC"
+            exit 1
+          fi
+
+          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
           sleep 2
-          if [ $i -eq 20 ]; then echo "$SVC failed to start"; docker logs $SVC; exit 1; fi
+
+          if [ "$i" -eq 20 ]; then
+            echo "TIMEOUT: $SVC failed to become healthy"
+            docker logs "$SVC"
+            exit 1
+          fi
         done
       done
+
     - docker rm -f auth-test || true
     - >
       docker run -d --name auth-test
