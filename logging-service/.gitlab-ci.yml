@@ -5,7 +5,7 @@ logging-check:
   stage: build-check
   image: python:3.12-slim-bookworm
   script:
-    - pip install ruff mypy
+    - pip install --no-cache-dir ruff mypy
     - ruff check .
     - mypy .
   rules:
