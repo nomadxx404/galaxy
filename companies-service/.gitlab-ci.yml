@@ -33,7 +33,14 @@ companies-health-check:
   services:
     - docker:24.0.5-dind
   script:
+    - docker rm -f companies-test || true
+    - >
     - docker run -d --name companies-test -p 8080:8080 $COMPANIES_IMAGE
+      -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
+      -e REDIS_HOST=localhost -e REDIS_PORT=6379 -e REDIS_PASSWORD=test
+      -e INVITATION_LINK_ACCESS_MINUTES=5
+      -e KAFKA_BOOTSTRAP_SERVERS=localhost:9092 -e KAFKA_AUTH_EVENTS_TOPIC=auth-events -e KAFKA_AUTH_EVENTS_TOPIC=companies-events
+      $COMPANIES_IMAGE
     - sleep 5
     - docker exec companies-test netstat -tuln | grep :8080 || (docker logs companies-test && exit 1)
     - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
