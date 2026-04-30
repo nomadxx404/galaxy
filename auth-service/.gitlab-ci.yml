@@ -67,28 +67,7 @@ auth-health-check:
       docker run -d --name auth-test \
         --network galaxy_test_net \
         -e ASPNETCORE_ENVIRONMENT=Development \
-        -e POSTGRES_HOST=postgres-ci \
-        -e POSTGRES_PORT=5432 \
-        -e POSTGRES_USER=test \
-        -e POSTGRES_PASSWORD=test \
-        -e POSTGRES_DB=test \
-        -e REDIS_HOST=redis-ci \
-        -e REDIS_PORT=6379 \
-        -e REDIS_PASSWORD=test \
-        -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
-        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
-        -e JWT_KEY=super-secret-key-at-least-32-chars-long!! \
-        -e JWT_ISSUER=test \
-        -e JWT_AUDIENCE=test \
-        -e JWT_ACCESS_MINUTES=15 \
-        -e JWT_REFRESH_DAYS=7 \
-        -e PASSWORD_HASHER_MEMORY_SIZE=65536 \
-        -e PASSWORD_HASHER_ITERATIONS=4 \
-        -e PASSWORD_HASHER_DEGREE_OF_PARALLELISM=1 \
-        -e PASSWORD_HASHER_SALT_LENGTH=16 \
-        -e PASSWORD_HASHER_HASH_LENGTH=32 \
-        -e OTP_CODE_ACCESS_MINUTES=5 \
-        -e RESET_PASSWORD_TOKEN_ACCESS_MINUTES=15 \
+        --env-file .env.example \
       $AUTH_IMAGE
     - sleep 10
     - docker exec auth-test curl -f http://localhost:8080/health || (docker logs auth-test && exit 1)
