@@ -81,6 +81,7 @@ companies-health-check:
     - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
     - docker rm -f companies-test
   after_script:
+    - docker rm -f companies-test || true
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["companies-docker-build"]
   rules:

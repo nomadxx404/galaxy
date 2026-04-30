@@ -79,6 +79,7 @@ logging-health-check:
     - docker ps -f name=logging-test | grep Up || (docker logs logging-test && exit 1)
     - docker rm -f logging-test
   after_script:
+    - docker rm -f logging-test || true
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["logging-docker-build"]
   rules:

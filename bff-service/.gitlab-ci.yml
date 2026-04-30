@@ -37,6 +37,8 @@ bff-health-check:
     - sleep 5
     - docker exec bff-test netstat -tuln | grep :8080 || (docker logs bff-test && exit 1)
     - docker exec bff-test wget --spider -q http://localhost:8080/health || (docker logs bff-test && exit 1)
+  after_script:
+    - docker rm -f bff-test || true
   needs: ["bff-docker-build"]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
