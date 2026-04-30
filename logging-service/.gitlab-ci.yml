@@ -66,11 +66,11 @@ logging-health-check:
     - |
       docker run -d --name logging-test \
         --network galaxy_test_net \
-        -e POSTGRES_HOST=postgres-ci \
-        -e POSTGRES_PORT=5432 \
-        -e POSTGRES_USER=test \
-        -e POSTGRES_PASSWORD=test \
-        -e POSTGRES_DB=test \
+        -e LOGS_POSTGRES_HOST=postgres-ci \
+        -e LOGS_POSTGRES_PORT=5432 \
+        -e LOGS_POSTGRES_USER=test \
+        -e LOGS_POSTGRES_PASSWORD=test \
+        -e LOGS_POSTGRES_DB=test \
         -e KAFKA_BOOTSTRAP_SERVERS=kafka-ci:9092 \
         -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
         -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \

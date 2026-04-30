@@ -95,3 +95,4 @@ auth-health-check:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - auth-service/**/*
+

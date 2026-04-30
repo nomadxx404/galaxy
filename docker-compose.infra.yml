@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
       POSTGRES_DB: test
+    volumes:
+      - ./init.sql:/docker-entrypoint/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test -d test"]
       interval: 5s
