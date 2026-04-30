@@ -39,19 +39,17 @@ logging-health-check:
 
     - |
       echo "Waiting for infrastructure to be healthy..."
-      SERVICES=("postgres" "auth-redis")
-      for SVC in "${SERVICES[@]}"; do
+      for SVC in postgres redis; do
         echo "Checking $SVC..."
         for i in $(seq 1 20); do
-          # Проверяем статус здоровья
           STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
-          if [ "$STATUS" == "healthy" ]; then
+          if [ "$STATUS" = "healthy" ]; then
             echo "SUCCESS: $SVC is ready!"
             break
           fi
 
           STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
-          if [ "$STATE" == "exited" ]; then
+          if [ "$STATE" = "exited" ]; then
             echo "ERROR: $SVC has crashed!"
             docker logs "$SVC"
             exit 1

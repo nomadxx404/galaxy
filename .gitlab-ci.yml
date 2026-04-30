@@ -10,7 +10,6 @@ prepare-infra:
   services: [docker:24.0.5-dind]
   script:
     - docker compose -f docker-compose.infra.yml up -d
-  tags: [docker]
 
 include:
   - local: 'auth-service/.gitlab-ci.yml'
