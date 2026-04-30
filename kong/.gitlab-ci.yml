@@ -6,9 +6,11 @@ kong-validate-config:
   image: kong/kong-gateway:3.14
   variables:
     KONG_DATABASE: "off"
+    KONG_PLUGINS: "bundled,account-uuid-header"
   script:
-    - cp ./kong/kong.yml /tmp/kong.yml
-    - kong config parse /tmp/kong.yml
+    - mkdir -p /usr/local/share/lua/5.1/kong/plugins/account-uuid-header
+    - cp -r ./kong/plugins/account-uuid-header/* /usr/local/share/lua/5.1/kong/plugins/account-uuid-header/
+    - kong config parse ./kong/kong.yml
   rules:
     - changes:
         - kong/**/*
