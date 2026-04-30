@@ -35,7 +35,6 @@ logging-health-check:
     - name: docker:24.0.5-dind
       alias: docker
   script:
-    - cd ..
     - docker compose -f docker-compose.infra.yml up -d
     - |
       echo "Waiting for infrastructure to be healthy..."
