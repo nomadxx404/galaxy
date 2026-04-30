@@ -5,7 +5,6 @@ logging-check:
   stage: build-check
   image: python:3.12-slim-bookworm
   script:
-    - cd logging-python
     - pip install ruff mypy
     - ruff check .
     - mypy .

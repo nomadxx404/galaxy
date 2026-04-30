@@ -4,6 +4,8 @@ variables:
 kong-validate-config:
   stage: build-check
   image: kong/kong-gateway:3.14
+  variables:
+    KONG_DATABASE: "off"
   script:
     - cp ./kong/kong.yml /tmp/kong.yml
     - kong config parse /tmp/kong.yml

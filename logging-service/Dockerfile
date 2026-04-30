@@ -30,4 +30,4 @@ COPY --chown=appuser:appuser . .
 
 USER appuser
 
-CMD ["uvicorn", "src.run:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "uvloop", "--no-access-log"]
+CMD ["uvicorn", "src.run:app", "--host", "0.0.0.0", "--port", "8080", "--loop", "uvloop", "--no-access-log"]
