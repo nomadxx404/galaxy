@@ -1,5 +1,4 @@
 import asyncpg
-from typing import Optional
 
 
 class LogsRepository:

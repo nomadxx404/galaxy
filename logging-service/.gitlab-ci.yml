@@ -1,5 +1,5 @@
 variables:
-  LOGGING_IMAGE: "$CI_REGISTRY_IMAGE/logging-python:$CI_COMMIT_SHORT_SHA"
+  LOGGING_IMAGE: "$CI_REGISTRY_USER/logging-python:$CI_COMMIT_SHORT_SHA"
 
 logging-check:
   stage: build-check
