@@ -19,6 +19,7 @@ kong-verify:
   stage: verify
   image: docker:24.0.5
   script:
+    - docker rm -f kong-test || true
     - >
       docker run -d --name kong-test
       -v $(pwd)/kong/kong.yml:/etc/kong/kong.yml
@@ -28,7 +29,8 @@ kong-verify:
       -e "KONG_PLUGINS=bundled,account-uuid-header"
       $KONG_IMAGE
     - sleep 5
-    - docker exec kong-test kong health
+    - docker exec kong-test kong health || (docker logs kong-test && exit 1)
+    - docker stop kong-test
   needs: ["kong-validate-config"]
   rules:
     - changes:
