@@ -35,7 +35,6 @@ companies-health-check:
       alias: docker
   script:
     - docker compose -f docker-compose.infra.yml up -d
-
     - |
       echo "Waiting for infrastructure to be healthy..."
       for SVC in postgres redis; do
@@ -46,17 +45,14 @@ companies-health-check:
             echo "SUCCESS: $SVC is ready!"
             break
           fi
-
           STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
           if [ "$STATE" = "exited" ]; then
             echo "ERROR: $SVC has crashed!"
             docker logs "$SVC"
             exit 1
           fi
-
           echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
           sleep 2
-
           if [ "$i" -eq 20 ]; then
             echo "TIMEOUT: $SVC failed to become healthy"
             docker logs "$SVC"
@@ -64,17 +60,25 @@ companies-health-check:
           fi
         done
       done
-
     - docker rm -f companies-test || true
     - >
-      docker run -d --name companies-test
-      -e POSTGRES_HOST=postgres -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
-      -e REDIS_HOST=redis -e REDIS_PORT=6379 -e REDIS_PASSWORD=test
-      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 -e KAFKA_AUTH_EVENTS_TOPIC=auth-events -e KAFKA_COMPANY_EVENTS_TOPIC=company-events
-      -e INVITATION_LINK_ACCESS_MINUTES=5
+      docker run -d --name companies-test \
+        --network galaxy_test_net \
+        -e POSTGRES_HOST=postgres \
+        -e POSTGRES_PORT=5432 \
+        -e POSTGRES_USER=test \
+        -e POSTGRES_PASSWORD=test \
+        -e POSTGRES_DB=test \
+        -e REDIS_HOST=redis \
+        -e REDIS_PORT=6379 \
+        -e REDIS_PASSWORD=test \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+        -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+        -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
+        -e INVITATION_LINK_ACCESS_MINUTES=5 \
       $COMPANIES_IMAGE
     - sleep 5
-    - docker exec companies-test netstat -tuln | grep :8080 || (docker logs companies-test && exit 1)
+    - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
     - docker rm -f companies-test
   needs: ["companies-docker-build"]
   rules:

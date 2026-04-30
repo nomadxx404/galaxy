@@ -36,7 +36,6 @@ logging-health-check:
       alias: docker
   script:
     - docker compose -f docker-compose.infra.yml up -d
-
     - |
       echo "Waiting for infrastructure to be healthy..."
       for SVC in postgres redis; do
@@ -47,14 +46,12 @@ logging-health-check:
             echo "SUCCESS: $SVC is ready!"
             break
           fi
-
           STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
           if [ "$STATE" = "exited" ]; then
             echo "ERROR: $SVC has crashed!"
             docker logs "$SVC"
             exit 1
           fi
-
           echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
           sleep 2
 
@@ -65,11 +62,16 @@ logging-health-check:
           fi
         done
       done
-
     - docker rm -f auth-test || true
     - >
-      -e POSTGRES_HOST=postgres -e POSTGRES_PORT=5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test
-      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 -e KAFKA_AUTH_EVENTS_TOPIC=auth-events -e KAFKA_COMPANY_EVENTS_TOPIC=company-events
+      -e POSTGRES_HOST=postgres \
+      -e POSTGRES_PORT=5432 \
+      -e POSTGRES_USER=test \
+      -e POSTGRES_PASSWORD=test \
+      -e POSTGRES_DB=test \
+      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+      -e KAFKA_AUTH_EVENTS_TOPIC=auth-events \
+      -e KAFKA_COMPANY_EVENTS_TOPIC=company-events \
       $LOGGING_IMAGE
     - docker run -d --name logging-test $LOGGING_IMAGE
     - sleep 5

@@ -18,6 +18,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM alpine:3.21
 WORKDIR /app
 
+RUN apk add --no-cache busybox-extras curl
+
 RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 COPY --from=builder /app/companies-service .
