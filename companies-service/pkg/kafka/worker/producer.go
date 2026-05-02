@@ -27,7 +27,7 @@ func NewRelay(pool *pgxpool.Pool, store *db.Queries, cfg *config.Config) *Produc
 		cfg:   cfg,
 		writer: &kafka.Writer{
 			Addr:     kafka.TCP(cfg.Kafka.BROKERS),
-			Topic:    cfg.Kafka.EVENTS_TOPIC,
+			Topic:    cfg.Kafka.EVENTS_TOPIC_COMPANY,
 			Balancer: &kafka.LeastBytes{},
 		},
 	}

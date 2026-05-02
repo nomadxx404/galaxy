@@ -30,9 +30,9 @@ type RedisConfig struct {
 }
 
 type KafkaConfig struct {
-	BROKERS           string `env:"KAFKA_BOOTSTRAP_SERVERS"`
-	EVENTS_TOPIC      string `env:"KAFKA_COMPANY_EVENTS_TOPIC"`
-	EVENTS_TOPIC_AUTH string `env:"KAFKA_AUTH_EVENTS_TOPIC"`
+	BROKERS              string `env:"KAFKA_BOOTSTRAP_SERVERS"`
+	EVENTS_TOPIC_COMPANY string `env:"KAFKA_COMPANY_EVENTS_TOPIC"`
+	EVENTS_TOPIC_AUTH    string `env:"KAFKA_AUTH_EVENTS_TOPIC"`
 }
 
 type InvitationConfig struct {

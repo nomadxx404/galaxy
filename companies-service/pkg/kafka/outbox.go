@@ -35,7 +35,7 @@ func EmitOutbox(
 	envelope := EventEnvelope{
 		EventType: eventType,
 		Metadata: EventMetadata{
-			Service:     cfg.Kafka.EVENTS_TOPIC,
+			Service:     cfg.Kafka.EVENTS_TOPIC_COMPANY,
 			RequestID:   usercontext.GetRequestId(ctx),
 			AccountUUID: usercontext.GetAccountUuid(ctx),
 			Method:      usercontext.GetMethod(ctx),

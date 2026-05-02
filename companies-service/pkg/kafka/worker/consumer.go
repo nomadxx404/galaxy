@@ -57,7 +57,7 @@ func NewConsumer(
 
 	companyReader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{cfg.Kafka.BROKERS},
-		Topic:   cfg.Kafka.EVENTS_TOPIC,
+		Topic:   cfg.Kafka.EVENTS_TOPIC_COMPANY,
 		GroupID: "companies-group",
 	})
 
