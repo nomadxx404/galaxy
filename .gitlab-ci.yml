@@ -8,4 +8,5 @@ include:
   - local: 'companies-service/.gitlab-ci.yml'
   - local: 'bff-service/.gitlab-ci.yml'
   - local: 'logging-service/.gitlab-ci.yml'
+  - local: 'files-service/.gitlab-ci.yml'
   - local: 'kong/.gitlab-ci.yml'

@@ -1,0 +1,231 @@
+openapi: 3.1.1
+info:
+  title: Files Service API
+  version: "1.0"
+servers:
+  - url: http://localhost:8000
+
+paths:
+  /api/files/{entity_id}/search:
+    post:
+      tags: [Files]
+      summary: Get files
+      parameters:
+        - $ref: "#/components/parameters/EntityID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilesInfoRequest"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FileInfoResponse"
+  /api/files:
+    post:
+      tags: [Files]
+      summary: Create files
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/CreateFileRequest"
+      responses:
+        "201":
+          description: "Created"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CreateFileResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/files/download/{file_id}:
+    get:
+      tags: [Files]
+      summary: Download file
+      parameters:
+        - $ref: "#/components/parameters/FileID"
+      responses:
+        "200":
+          description: "Ok"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/files/{entity_id}/{file_id}:
+    delete:
+      tags: [Files]
+      summary: Delete file
+      parameters:
+        - $ref: "#/components/parameters/EntityID"
+        - $ref: "#/components/parameters/FileID"
+      responses:
+        "200":
+          $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+components:
+  parameters:
+    EntityID:
+      name: entity_id
+      description: "ID сущности"
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FileID:
+      name: file_id
+      description: "ID файла"
+      in: path
+      required: true
+      schema:
+        type: int
+
+  schemas:
+    CreateFileRequest:
+      type: object
+      properties:
+        entity_type:
+          type: [string]
+        entity_id:
+          type: [string, "null"]
+        file:
+          type: [string]
+          format: binary
+
+    CreateFileResponse:
+      type: object
+      properties:
+        file_id:
+          type: int
+        created_at:
+          type: string
+          format: date-time
+
+    FilesInfoRequest:
+      type: object
+      required:
+        - file_ids
+      properties:
+        file_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    FileInfoResponse:
+      type: object
+      properties:
+        file_id:
+          type: integer
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+        content_type:
+          type: string
+        url:
+          type: string
+          format: uri
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        status: { type: integer }
+
+  responses:
+    Error400:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error401:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error403:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error404:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error409:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error410:
+      description: "Gone"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

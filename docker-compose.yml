@@ -271,6 +271,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-service:9092
       KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
       KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
+      KAFKA_FILE_EVENTS_TOPIC: ${KAFKA_FILE_EVENTS_TOPIC}
     ports:
       - "8003:8080"
     healthcheck:
@@ -285,11 +286,74 @@ services:
     networks:
       - galaxy-net
 
+  files-service:
+    build:
+      context: ./files-service
+      dockerfile: Dockerfile
+    container_name: files-service
+    environment:
+      GIN_MODE: release
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
+      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
+      KAFKA_FILE_EVENTS_TOPIC: ${KAFKA_FILE_EVENTS_TOPIC}
+
+      FILES_SERVICE_URL: ${FILES_SERVICE_URL}
+    ports:
+      - "8084:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - galaxy-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server --console-address ":9001" /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - galaxy-net
+
 volumes:
   pgdata-galaxy:
   pgdata-galaxy-logs:
   auth_redis_data:
   companies_redis_data:
+  minio_data:
 
 networks:
   galaxy-net:

@@ -1,0 +1,99 @@
+variables:
+  files_IMAGE: "$CI_REGISTRY_USER/files-service:$CI_COMMIT_SHORT_SHA"
+
+files-compile:
+  stage: build-check
+  image: golang:1.25.7-alpine
+  script:
+    - cd files-service
+    - go mod download
+    - go build -v -o /dev/null ./cmd/main.go
+  rules:
+    - changes:
+        - files-service/**/*
+
+files-docker-build:
+  stage: package
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - docker build -t $files_IMAGE ./files-service
+    - docker push $files_IMAGE
+  needs: ["files-compile"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - files-service/**/*
+
+files-health-check:
+  stage: verify
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  script:
+    - docker compose -f docker-compose.infra.yml up -d
+    - |
+      echo "Waiting for infrastructure to be healthy..."
+      for SVC in postgres-ci redis-ci minio-ci; do
+        echo "Checking $SVC..."
+        for i in $(seq 1 20); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+          if [ "$STATUS" = "healthy" ]; then
+            echo "SUCCESS: $SVC is ready!"
+            break
+          fi
+          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
+          if [ "$STATE" = "exited" ]; then
+            echo "ERROR: $SVC has crashed!"
+            docker logs "$SVC"
+            exit 1
+          fi
+          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
+          sleep 2
+          if [ "$i" -eq 20 ]; then
+            echo "TIMEOUT: $SVC failed to become healthy"
+            docker logs "$SVC"
+            exit 1
+          fi
+        done
+      done
+      echo "Injecting SQL schema..."
+      docker exec -i postgres-ci psql -U test -d test < init.sql
+    - docker rm -f files-test || true
+    - |
+      echo "Checking MinIO API connectivity..."
+      for i in $(seq 1 10); do
+        # Проверяем через curl из контейнера postgres, так как они в одной сети
+        if docker exec postgres-ci curl -s http://minio-ci:9000/minio/health/live; then
+          echo "MinIO API is up and running!"
+          break
+        else
+          echo "Waiting for MinIO API... (attempt $i/10)"
+          sleep 3
+        fi
+        if [ "$i" -eq 10 ]; then
+          echo "ERROR: MinIO API connection failed after 30s"
+          docker logs minio-ci
+          exit 1
+        fi
+      done
+    - |
+      docker run -d --name files-test \
+        --network galaxy_test_net \
+        --env-file .env.example \
+      $files_IMAGE
+    - sleep 5
+    - docker exec files-test wget --spider -q http://localhost:8080/health || (docker logs files-test && exit 1)
+    - docker rm -f files-test
+  after_script:
+    - docker rm -f files-test || true
+    - docker compose -f docker-compose.infra.yml down -v
+  needs: ["files-docker-build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - files-service/**/*
+
