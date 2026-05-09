@@ -49,11 +49,6 @@ services:
     env_file:
       - .env.example
     command: server --console-address ":9001" /data
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -66,6 +61,3 @@ networks:
     name: galaxy_test_net
     driver: bridge
 
-volumes:
-  minio_data:
-  pgdata:
