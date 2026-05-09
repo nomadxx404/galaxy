@@ -9,9 +9,10 @@ import (
 
 func (a *App) RegisterRoutes() {
 
-	a.Router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "OK"})
-	})
+	a.Router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/health"},
+	}))
+	a.Router.Use(gin.Recovery())
 
 	docs := a.Router.Group("/ui")
 	{

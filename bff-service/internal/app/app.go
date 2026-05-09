@@ -20,7 +20,7 @@ type App struct {
 
 func NewApp(ctx context.Context) *App {
 	cfg := config.GetConfig()
-	router := gin.Default()
+	router := gin.New()
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
