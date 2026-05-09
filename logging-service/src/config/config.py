@@ -16,11 +16,13 @@ class Settings(BaseSettings):
         default=..., alias="KAFKA_AUTH_EVENTS_TOPIC")
     COMPANY_EVENTS_TOPIC: str = Field(
         default=..., alias="KAFKA_COMPANY_EVENTS_TOPIC")
+    FILE_EVENTS_TOPIC: str = Field(
+        default=..., alias="KAFKA_FILE_EVENTS_TOPIC")
 
     # @computed_field
     @property
     def TOPIC(self) -> List[str]:
-        return [self.COMPANY_EVENTS_TOPIC, self.AUTH_EVENTS_TOPIC]
+        return [self.COMPANY_EVENTS_TOPIC, self.AUTH_EVENTS_TOPIC, self.FILE_EVENTS_TOPIC]
 
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",

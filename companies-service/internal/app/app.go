@@ -62,7 +62,7 @@ func NewApp(ctx context.Context) (*App, func()) {
 	memberHandler := api.NewMemberHandler(membersService)
 	permissionHandler := api.NewPermissionHandler(permissionService)
 
-	router := gin.Default()
+	router := gin.New()
 
 	log.Println("Infrastructure, Services and Handlers initialized")
 

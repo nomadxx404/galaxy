@@ -1,7 +1,7 @@
 package app
 
 import (
-	"bff-service/pkg/middleware"
+	"files-service/pkg/middleware"
 
 	scalargo "github.com/bdpiprava/scalar-go"
 	"github.com/gin-gonic/gin"
@@ -14,12 +14,12 @@ func (a *App) RegisterRoutes() {
 	}))
 	a.Router.Use(gin.Recovery())
 
-	docs := a.Router.Group("/ui")
+	docs := a.Router.Group("/files")
 	{
 		docs.StaticFile("/openapi.json", "./static/swagger.json")
 		docs.GET("/scalar", func(c *gin.Context) {
 			html, err := scalargo.NewV2(
-				scalargo.WithSpecURL("http://localhost:8000/ui/openapi.json"),
+				scalargo.WithSpecURL("http://localhost:8000/files/openapi.json"),
 			)
 			if err != nil {
 				c.JSON(500, gin.H{"error": err.Error()})
@@ -30,12 +30,15 @@ func (a *App) RegisterRoutes() {
 		})
 	}
 
-	v1 := a.Router.Group("/api/ui")
+	v1 := a.Router.Group("/api")
 	v1.Use(middleware.ContextMiddleware())
 	{
-		companies := v1.Group("/companies")
+		files := v1.Group("/files")
 		{
-			companies.GET("/:company_uuid/members", a.Handler.GetCompanyMembers)
+			files.POST("", a.FileHandler.CreateFile)
+			files.POST("/:entity_id/search", a.FileHandler.GetFiles)
+			files.DELETE("/:entity_id/:file_id", a.FileHandler.DeleteFiles)
+			files.GET("/download/:file_id", a.FileHandler.DownloadFile)
 		}
 	}
 }
