@@ -66,8 +66,7 @@ files-health-check:
     - |
       echo "Checking MinIO API connectivity..."
       for i in $(seq 1 10); do
-        # Проверяем через curl из контейнера postgres, так как они в одной сети
-        if docker exec postgres-ci curl -s http://minio-ci:9000/minio/health/live; then
+        if docker exec postgres-ci nc -z minio-ci 9000; then
           echo "MinIO API is up and running!"
           break
         else
