@@ -12,6 +12,7 @@ Galaxy разрабатывается как система для команд�
 
 - авторизация и управление аккаунтами;
 - управление компаниями;
+- управление файлами;
 - BFF-слой для взаимодействия клиентской части с backend-сервисами;
 - централизованная маршрутизация через Kong;
 - событийный обмен через Kafka;
@@ -26,6 +27,7 @@ Galaxy разрабатывается как система для команд�
 - `auth-service` — сервис авторизации на C#;
 - `bff-service` — BFF-сервис на Go;
 - `companies-service` — сервис компаний на Go;
+- `files-service` — сервис файловый на Go;
 - `logging-service` — сервис логирования на Python;
 - `kong` — конфигурация API Gateway;
 - `docker-compose.yml` — запуск основной инфраструктуры и сервисов;
@@ -39,7 +41,7 @@ Galaxy разрабатывается как система для команд�
 - `projects-service` — сервис проектов;
 - `tasks-service` — сервис задач;
 - `notification-service` — сервис уведомлений;
-- расширение API для полноценной работы с проектами, задачами, комментариями, файлами и уведомлениями.
+- расширение API для полноценной работы с проектами, задачами, комментариями и уведомлениями.
 
 ## Архитектура
 
@@ -53,6 +55,7 @@ Galaxy разрабатывается как система для команд�
 | `bff-service`       | Backend for Frontend. Агрегация данных.                                          |
 | `auth-service`      | Авторизация, регистрация, JWT, refresh token, reset password token, OTP-коды.    |
 | `companies-service` | Управление компаниями, ролями, участниками и правами доступа на уровне компании. |
+| `files-service`     | Управление файлами. Загрузка, скачивание и метаданные. Интегрирован с MinIO.     |
 | `logging-service`   | Обработка событий из Kafka и запись логов в отдельную PostgreSQL-базу.           |
 | `postgres`          | Основная база данных приложения.                                                 |
 | `postgres-logs`     | Отдельная база данных для логов.                                                 |
@@ -60,6 +63,7 @@ Galaxy разрабатывается как система для команд�
 | `companies-redis`   | Redis для кэша сервиса компаний.                                                 |
 | `kafka-service`     | Kafka-брокер для событийного обмена между сервисами.                             |
 | `kafka-ui`          | Web-интерфейс для просмотра Kafka-кластерa и топиков.                            |
+| `minio`             | S3-совместимое объектное хранилище для физического хранения файлов.              |
 
 Схема взаимодействия:
 
@@ -72,6 +76,7 @@ Galaxy разрабатывается как система для команд�
 | API Gateway            | Kong Gateway           |
 | BFF                    | Go                     |
 | Сервис компаний        | Go                     |
+| Сервис файловый        | Go                     |
 | Сервис авторизации     | C# / ASP.NET Core      |
 | Сервис логирования     | Python                 |
 | Основная база данных   | PostgreSQL             |
@@ -79,6 +84,7 @@ Galaxy разрабатывается как система для команд�
 | Кэш / временные данные | Redis                  |
 | Брокер сообщений       | Apache Kafka           |
 | Kafka UI               | Provectus Kafka UI     |
+| Объектное хранилище    | MinIO (S3 compatible)  |
 | Контейнеризация        | Docker, Docker Compose |
 
 ## Структура репозитория
@@ -88,6 +94,7 @@ Galaxy разрабатывается как система для команд�
 ├── auth-service/            # сервис авторизации
 ├── bff-service/             # BFF-сервис
 ├── companies-service/       # сервис компаний
+├── files-service/           # сервис файловый
 ├── kong/                    # конфигурация Kong API Gateway
 ├── logging-service/         # сервис логирования
 ├── architecture.excalidraw  # схема архитектуры
@@ -113,39 +120,64 @@ Galaxy разрабатывается как система для команд�
 Пример `.env`:
 
 ```env
-AUTH_SERVICE_URL=http://auth-service:8080
-COMPANIES_SERVICE_URL=http://companies-service:8080
+POSTGRES_HOST=postgres-ci
+POSTGRES_USER=test
+POSTGRES_PASSWORD=test
+POSTGRES_DB=test
+POSTGRES_PORT=5432
 
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=postgres
+LOGS_POSTGRES_HOST=postgres-ci
+LOGS_POSTGRES_USER=test
+LOGS_POSTGRES_PASSWORD=test
+LOGS_POSTGRES_DB=test
+LOGS_POSTGRES_PORT=5432
 
-LOGS_POSTGRES_USER=postgres
-LOGS_POSTGRES_PASSWORD=postgres
-LOGS_POSTGRES_DB=postgres_logs
+JWT_KEY=YourSuperSecretLongAndComplexKeyAtLeast32Chars123!
+JWT_ISSUER=test
+JWT_AUDIENCE=test
+JWT_ACCESS_MINUTES=1
+JWT_REFRESH_DAYS=1
 
-AUTH_REDIS_PASSWORD=auth_redis_password
-COMPANIES_REDIS_PASSWORD=companies_redis_password
+PASSWORD_HASHER_MEMORY_SIZE=1
+PASSWORD_HASHER_ITERATIONS=1
+PASSWORD_HASHER_DEGREE_OF_PARALLELISM=1
+PASSWORD_HASHER_SALT_LENGTH=1
+PASSWORD_HASHER_HASH_LENGTH=1
 
-JWT_KEY=change_me_to_a_long_secret_key
-JWT_ISSUER=galaxy
-JWT_AUDIENCE=galaxy
-JWT_ACCESS_MINUTES=15
-JWT_REFRESH_DAYS=30
+OTP_CODE_ACCESS_MINUTES=1
 
-PASSWORD_HASHER_MEMORY_SIZE=65536
-PASSWORD_HASHER_ITERATIONS=3
-PASSWORD_HASHER_DEGREE_OF_PARALLELISM=2
-PASSWORD_HASHER_SALT_LENGTH=16
-PASSWORD_HASHER_HASH_LENGTH=32
+RESET_PASSWORD_TOKEN_ACCESS_MINUTES=1
 
-OTP_CODE_ACCESS_MINUTES=10
-RESET_PASSWORD_TOKEN_ACCESS_MINUTES=15
-INVITATION_LINK_ACCESS_MINUTES=1440
+INVITATION_LINK_ACCESS_MINUTES=1
+
+REDIS_HOST=redis-ci
+REDIS_PORT=6379
+REDIS_PASSWORD=test
+
+AUTH_REDIS_HOST=redis-ci
+AUTH_REDIS_PORT=6379
+AUTH_REDIS_PASSWORD=test
+
+COMPANIES_REDIS_HOST=redis-ci
+COMPANIES_REDIS_PORT=6379
+COMPANIES_REDIS_PASSWORD=test
+
 
 KAFKA_BOOTSTRAP_SERVERS=kafka-service:9092
-KAFKA_AUTH_EVENTS_TOPIC=auth-events
-KAFKA_COMPANY_EVENTS_TOPIC=company-events
+KAFKA_AUTH_EVENTS_TOPIC=test-events
+KAFKA_COMPANY_EVENTS_TOPIC=test-events
+KAFKA_KONG_EVENTS_TOPIC=test-events
+KAFKA_FILE_EVENTS_TOPIC=test-events
+
+AUTH_SERVICE_URL=http://auth-service:8080
+COMPANIES_SERVICE_URL=http://companies-service:8080
+FILES_SERVICE_URL=http://files-service:8000
+
+MINIO_HOST=minio-ci
+MINIO_PORT=9000
+MINIO_ROOT_USER=test
+MINIO_ROOT_PASSWORD=test123456
+MINIO_BUCKET_NAME=test
 ```
 
 Значения в примере предназначены для локального запуска. Для production-окружения необходимо заменить пароли, JWT-ключ и остальные чувствительные параметры.
@@ -177,19 +209,22 @@ docker compose up --build
 | ---------------------------------------- | ------------------------------------ |
 | `http://localhost:8000/auth/scalar`      | Документация API сервиса авторизации |
 | `http://localhost:8000/companies/scalar` | Документация API сервиса компаний    |
+| `http://localhost:8000/files/scalar`     | Документация API сервиса файлового   |
 | `http://localhost:8000/ui/scalar`        | Документация API BFF/UI-слоя         |
 
 Инфраструктурные порты:
 
-| Сервис          |              URL / порт | Назначение                 |
-| --------------- | ----------------------: | -------------------------- |
-| Kong Gateway    | `http://localhost:8000` | Единая внешняя точка входа |
-| Kafka           |        `localhost:9092` | Kafka broker               |
-| Kafka UI        | `http://localhost:8085` | Web-интерфейс Kafka        |
-| PostgreSQL      |        `localhost:5430` | Основная БД                |
-| PostgreSQL Logs |        `localhost:5431` | БД логирования             |
-| Redis Auth      |        `localhost:6379` | Redis для авторизации      |
-| Redis Companies |        `localhost:6380` | Redis для сервиса компаний |
+| Сервис          |              URL / порт | Назначение                        |
+| --------------- | ----------------------: | --------------------------------- |
+| Kong Gateway    | `http://localhost:8000` | Единая внешняя точка входа        |
+| Kafka           |        `localhost:9092` | Kafka broker                      |
+| Kafka UI        | `http://localhost:8085` | Web-интерфейс Kafka               |
+| PostgreSQL      |        `localhost:5430` | Основная БД                       |
+| PostgreSQL Logs |        `localhost:5431` | БД логирования                    |
+| Redis Auth      |        `localhost:6379` | Redis для авторизации             |
+| Redis Companies |        `localhost:6380` | Redis для сервиса компаний        |
+| Minio           |        `localhost:9000` | Файловое хранилище                |
+| Minio UI        |        `localhost:9001` | Web-интерфейс файлового хранилища |
 
 ## База данных
 
@@ -218,7 +253,8 @@ docker compose up --build
 Сейчас в конфигурации используются топики:
 
 - `auth-events` — события сервиса авторизации;
-- `company-events` — события сервиса компаний.
+- `company-events` — события сервиса компаний;
+- `files-events` — события сервиса файлового.
 
 Сервисы могут публиковать события в Kafka, а `logging-service` обрабатывает их и сохраняет данные в базу логирования.
 
