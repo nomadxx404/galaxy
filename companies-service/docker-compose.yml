@@ -1,0 +1,40 @@
+services:
+  companies-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: companies-service
+    env_file:
+        - .env
+    environment:
+      GIN_MODE: release
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      companies-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - galaxy-net
+
+  companies-redis:
+    image: redis:7-alpine
+    container_name: companies-redis
+    command: ["redis-server", "--requirepass", "${COMPANIES_REDIS_PASSWORD}"]
+    ports:
+      - "6381:6379"
+    volumes:
+      - companies-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${COMPANIES_REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - galaxy-net
+
+volumes:
+  companies-redis-data:

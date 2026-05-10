@@ -5,11 +5,11 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    POSTGRES_HOST: str = Field(default=..., alias="LOGS_POSTGRES_HOST")
-    POSTGRES_USER: str = Field(default=..., alias="LOGS_POSTGRES_USER")
-    POSTGRES_PASSWORD: str = Field(default=..., alias="LOGS_POSTGRES_PASSWORD")
-    POSTGRES_DB: str = Field(default=..., alias="LOGS_POSTGRES_DB")
-    POSTGRES_PORT: int = Field(default=..., alias="LOGS_POSTGRES_PORT")
+    POSTGRES_HOST: str = Field(default=..., alias="POSTGRES_HOST")
+    POSTGRES_USER: str = Field(default=..., alias="POSTGRES_USER")
+    POSTGRES_PASSWORD: str = Field(default=..., alias="POSTGRES_PASSWORD")
+    POSTGRES_DB: str = Field(default=..., alias="POSTGRES_DB")
+    POSTGRES_PORT: int = Field(default=..., alias="POSTGRES_PORT")
 
     BROKERS: str = Field(default=..., alias="KAFKA_BOOTSTRAP_SERVERS")
     AUTH_EVENTS_TOPIC: str = Field(

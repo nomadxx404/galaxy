@@ -31,10 +31,10 @@ type KafkaConfig struct {
 }
 
 type MinioConfig struct {
-	RootUser     string `env:"MINIO_ROOT_USER"`
-	RootPassword string `env:"MINIO_ROOT_PASSWORD"`
 	Host         string `env:"MINIO_HOST"`
 	Port         string `env:"MINIO_PORT"`
+	RootUser     string `env:"MINIO_ROOT_USER"`
+	RootPassword string `env:"MINIO_ROOT_PASSWORD"`
 	BucketName   string `env:"MINIO_BUCKET_NAME"`
 }
 

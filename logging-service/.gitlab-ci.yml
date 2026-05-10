@@ -19,13 +19,12 @@ logging-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $LOGGING_IMAGE ./logging-service
     - docker push $LOGGING_IMAGE
   needs: ["logging-check"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - logging-service/**/*
 
 logging-health-check:
@@ -68,7 +67,7 @@ logging-health-check:
     - |
       docker run -d --name logging-test \
         --network galaxy_test_net \
-        --env-file .env.example \
+        --env-file logging-service/.env.example \
       $LOGGING_IMAGE
     - sleep 5
     - docker ps -f name=logging-test | grep Up || (docker logs logging-test && exit 1)
@@ -78,6 +77,5 @@ logging-health-check:
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["logging-docker-build"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - logging-service/**/*

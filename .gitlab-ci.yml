@@ -3,6 +3,12 @@ stages:
   - package
   - verify
 
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: never
+
 include:
   - local: 'auth-service/.gitlab-ci.yml'
   - local: 'companies-service/.gitlab-ci.yml'

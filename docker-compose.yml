@@ -1,58 +1,14 @@
+name: galaxy
+
+include:
+  - path: auth-service/docker-compose.yml
+  - path: bff-service/docker-compose.yml
+  - path: companies-service/docker-compose.yml
+  - path: files-service/docker-compose.yml
+  - path: kong/docker-compose.yml
+  - path: logging-service/docker-compose.yml
+
 services:
-  kong:
-    image: kong/kong-gateway:3.14
-    container_name: kong
-    depends_on:
-      - auth-service
-      - companies-service
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
-      KONG_REQUIRE_HTTPS_OFF_TERMINATION: "yes"
-      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-      KONG_LOG_LEVEL: info
-      KONG_PLUGINS: "bundled,account-uuid-header"
-      KONG_MEM_CACHE_SIZE: "128m"
-      KONG_NGINX_WORKER_PROCESSES: "2"
-      KONG_LUA_SHARED_DICT: "kong_db_cache 128m, kong 128m, kong_locks 16m"
-      KONG_DNS_RES_TTL: "30"
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD", "kong", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    volumes:
-      - ./kong/kong.yml:/etc/kong/kong.yml:ro
-      - ./kong/plugins/account-uuid-header:/usr/local/share/lua/5.1/kong/plugins/account-uuid-header:ro
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  bff-service:
-    build:
-      context: ./bff-service
-      dockerfile: Dockerfile
-    container_name: bff-service
-    environment:
-      - GIN_MODE=release
-      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
-      - COMPANIES_SERVICE_URL=${COMPANIES_SERVICE_URL}
-    ports:
-      - "8082:8082"
-    depends_on:
-      - auth-service
-      - companies-service
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
   postgres:
     image: postgres:18-alpine
     container_name: postgres
@@ -75,149 +31,6 @@ services:
     networks:
       - galaxy-net
 
-  postgres-logs:
-    image: postgres:18-alpine
-    container_name: postgres-logs
-    environment:
-      POSTGRES_USER: ${LOGS_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${LOGS_POSTGRES_DB}
-    ports:
-      - "5431:5432"
-    volumes:
-      - pgdata-galaxy-logs:/var/lib/postgresql/data/pgdata
-      - ./init.sql:/docker-entrypoint-initdb.d/init_logs.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  auth-service:
-    build:
-      context: ./auth-service
-      dockerfile: Dockerfile
-    container_name: auth-service
-    depends_on:
-      auth-redis:
-        condition: service_healthy
-      postgres:
-        condition: service_started
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-      REDIS_HOST: auth-redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${AUTH_REDIS_PASSWORD}
-
-      JWT_KEY: ${JWT_KEY}
-      JWT_ISSUER: ${JWT_ISSUER}
-      JWT_AUDIENCE: ${JWT_AUDIENCE}
-      JWT_ACCESS_MINUTES: ${JWT_ACCESS_MINUTES}
-      JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS}
-
-      PASSWORD_HASHER_MEMORY_SIZE: ${PASSWORD_HASHER_MEMORY_SIZE}
-      PASSWORD_HASHER_ITERATIONS: ${PASSWORD_HASHER_ITERATIONS}
-      PASSWORD_HASHER_DEGREE_OF_PARALLELISM: ${PASSWORD_HASHER_DEGREE_OF_PARALLELISM}
-      PASSWORD_HASHER_SALT_LENGTH: ${PASSWORD_HASHER_SALT_LENGTH}
-      PASSWORD_HASHER_HASH_LENGTH: ${PASSWORD_HASHER_HASH_LENGTH}
-
-      OTP_CODE_ACCESS_MINUTES: ${OTP_CODE_ACCESS_MINUTES}
-
-      RESET_PASSWORD_TOKEN_ACCESS_MINUTES: ${RESET_PASSWORD_TOKEN_ACCESS_MINUTES}
-
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
-    ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  auth-redis:
-    image: redis:7-alpine
-    container_name: auth-redis
-    command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
-    ports:
-      - "6379:6379"
-    volumes:
-      - auth_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "PING"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    networks:
-      - galaxy-net
-
-  companies-service:
-    build:
-      context: ./companies-service
-      dockerfile: Dockerfile
-    container_name: companies-service
-    environment:
-      GIN_MODE: release
-
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-      REDIS_HOST: companies-redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${COMPANIES_REDIS_PASSWORD}
-
-      INVITATION_LINK_ACCESS_MINUTES: ${INVITATION_LINK_ACCESS_MINUTES}
-
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
-      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
-    ports:
-      - "8081:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    depends_on:
-      postgres:
-        condition: service_healthy
-      companies-redis:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  companies-redis:
-    image: redis:7-alpine
-    container_name: companies-redis
-    command: ["redis-server", "--requirepass", "${COMPANIES_REDIS_PASSWORD}"]
-    ports:
-      - "6380:6379"
-    volumes:
-      - companies_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${COMPANIES_REDIS_PASSWORD}", "PING"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    networks:
-      - galaxy-net
-
   kafka-service:
     image: apache/kafka:4.2.0
     container_name: kafka-service
@@ -235,11 +48,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
-    ports:
-      - "9092:9092"
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
-      interval: 5s
+      interval: 10s
       timeout: 10s
       retries: 5
     networks:
@@ -256,104 +67,10 @@ services:
     networks:
       - galaxy-net
 
-  logging-service:
-    build:
-      context: ./logging-service
-      dockerfile: Dockerfile
-    container_name: logging-service
-    environment:
-      LOGS_POSTGRES_HOST: postgres-logs
-      LOGS_POSTGRES_PORT: 5432
-      LOGS_POSTGRES_USER: ${LOGS_POSTGRES_USER}
-      LOGS_POSTGRES_PASSWORD: ${LOGS_POSTGRES_PASSWORD}
-      LOGS_POSTGRES_DB: ${LOGS_POSTGRES_DB}
-
-      KAFKA_BOOTSTRAP_SERVERS: kafka-service:9092
-      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
-      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
-      KAFKA_FILE_EVENTS_TOPIC: ${KAFKA_FILE_EVENTS_TOPIC}
-    ports:
-      - "8003:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f main.py || exit 1"]
-      interval: 10s
-    depends_on:
-      postgres-logs:
-        condition: service_healthy
-      kafka-service:
-        condition: service_started
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  files-service:
-    build:
-      context: ./files-service
-      dockerfile: Dockerfile
-    container_name: files-service
-    environment:
-      GIN_MODE: release
-
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_HOST: minio
-      MINIO_PORT: 9000
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
-
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_AUTH_EVENTS_TOPIC: ${KAFKA_AUTH_EVENTS_TOPIC}
-      KAFKA_COMPANY_EVENTS_TOPIC: ${KAFKA_COMPANY_EVENTS_TOPIC}
-      KAFKA_FILE_EVENTS_TOPIC: ${KAFKA_FILE_EVENTS_TOPIC}
-
-      FILES_SERVICE_URL: ${FILES_SERVICE_URL}
-    ports:
-      - "8084:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - galaxy-net
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    command: server --console-address ":9001" /data
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - galaxy-net
-
 volumes:
   pgdata-galaxy:
-  pgdata-galaxy-logs:
-  auth_redis_data:
-  companies_redis_data:
-  minio_data:
 
 networks:
   galaxy-net:
+    name: galaxy_network
+    driver: bridge

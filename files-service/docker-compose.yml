@@ -1,0 +1,43 @@
+services:
+  files-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: files-service
+    env_file:
+      - .env
+    environment:
+      GIN_MODE: release
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - galaxy-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server --console-address ":9001" /data
+    env_file:
+      - .env
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - galaxy-net
+
+volumes:
+  minio-data:
