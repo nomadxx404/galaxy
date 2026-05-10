@@ -18,13 +18,12 @@ bff-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $BFF_IMAGE ./bff-service
     - docker push $BFF_IMAGE
   needs: ["bff-compile"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - bff-service/**/*
 
 bff-health-check:
@@ -41,6 +40,5 @@ bff-health-check:
     - docker rm -f bff-test || true
   needs: ["bff-docker-build"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - bff-service/**/*

@@ -16,13 +16,12 @@ auth-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $AUTH_IMAGE ./auth-service
     - docker push $AUTH_IMAGE
   needs: ["auth-compile"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - auth-service/**/*
 
 auth-health-check:
@@ -67,7 +66,7 @@ auth-health-check:
       docker run -d --name auth-test \
         --network galaxy_test_net \
         -e ASPNETCORE_ENVIRONMENT=Development \
-        --env-file .env.example \
+        --env-file auth-service/.env.example \
       $AUTH_IMAGE
     - sleep 10
     - docker exec auth-test curl -f http://localhost:8080/health || (docker logs auth-test && exit 1)
@@ -76,7 +75,6 @@ auth-health-check:
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["auth-docker-build"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - auth-service/**/*
+    - changes:
+      - auth-service/**/*
 

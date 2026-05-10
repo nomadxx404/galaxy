@@ -1,0 +1,14 @@
+services:
+  logging-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: logging-service
+    env_file:
+        - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f main.py || exit 1"]
+      interval: 10s
+    restart: unless-stopped
+    networks:
+      - galaxy-net

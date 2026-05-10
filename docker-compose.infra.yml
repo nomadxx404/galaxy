@@ -46,8 +46,9 @@ services:
   minio-ci:
     image: minio/minio:latest
     container_name: minio-ci
-    env_file:
-      - .env.example
+    environment:
+      - MINIO_ROOT_USER=test
+      - MINIO_ROOT_PASSWORD=test123456
     command: server --console-address ":9001" /data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]

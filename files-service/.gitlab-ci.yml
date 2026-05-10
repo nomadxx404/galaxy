@@ -1,5 +1,5 @@
 variables:
-  files_IMAGE: "$CI_REGISTRY_USER/files-service:$CI_COMMIT_SHORT_SHA"
+  FILES_IMAGE: "$CI_REGISTRY_USER/files-service:$CI_COMMIT_SHORT_SHA"
 
 files-compile:
   stage: build-check
@@ -18,13 +18,12 @@ files-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
-    - docker build -t $files_IMAGE ./files-service
-    - docker push $files_IMAGE
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - docker build -t $FILES_IMAGE ./files-service
+    - docker push $FILES_IMAGE
   needs: ["files-compile"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - files-service/**/*
 
 files-health-check:
@@ -82,8 +81,12 @@ files-health-check:
     - |
       docker run -d --name files-test \
         --network galaxy_test_net \
-        --env-file .env.example \
-      $files_IMAGE
+        -e MINIO_ENDPOINT=minio-ci:9000 \
+        -e MINIO_ACCESS_KEY=test \
+        -e MINIO_SECRET_KEY=test123456 \
+        -e MINIO_USE_SSL=false \
+        --env-file files-service/.env.example \
+      $FILES_IMAGE
     - sleep 5
     - docker exec files-test wget --spider -q http://localhost:8080/health || (docker logs files-test && exit 1)
     - docker rm -f files-test
@@ -92,7 +95,6 @@ files-health-check:
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["files-docker-build"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - files-service/**/*
 

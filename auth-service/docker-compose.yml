@@ -1,0 +1,40 @@
+services:
+  auth-service:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: auth-service
+      depends_on:
+        auth-redis:
+          condition: service_healthy
+      env_file:
+        - .env
+      environment:
+        ASPNETCORE_ENVIRONMENT: Development
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+        interval: 10s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      networks:
+        - galaxy-net
+
+  auth-redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - auth-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${AUTH_REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - galaxy-net
+
+volumes:
+  auth-redis-data:

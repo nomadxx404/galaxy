@@ -12,6 +12,8 @@ create schema if not exists file;
 
 create schema if not exists notification;
 
+create schema if not exists log;
+
 --------------------------------------auth-----------------------------------------------
 create table if not exists auth.account (
     account_uuid varchar primary key not null,
@@ -337,4 +339,18 @@ create table if not exists notification.notifications (
     is_read boolean default false not null,
     read_at timestamptz,
     created_at timestamptz default now () not null
+);
+
+--------------------------------------logs-----------------------------------------------
+create table if not exists log.logs (
+    log_id bigserial primary key not null,
+    created_at timestamptz default now () not null,
+    service varchar not null,
+    method varchar not null,
+    path varchar not null,
+    status int not null,
+    account_uuid varchar not null,
+    request_id varchar not null,
+    body_hash varchar not null,
+    body_size int not null
 );

@@ -18,13 +18,12 @@ companies-docker-build:
   services:
     - docker:24.0.5-dind
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - docker build -t $COMPANIES_IMAGE ./companies-service
     - docker push $COMPANIES_IMAGE
   needs: ["companies-compile"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - companies-service/**/*
 
 companies-health-check:
@@ -66,7 +65,7 @@ companies-health-check:
     - |
       docker run -d --name companies-test \
         --network galaxy_test_net \
-        --env-file .env.example \
+        --env-file companies-service/.env.example \
       $COMPANIES_IMAGE
     - sleep 5
     - docker exec companies-test wget --spider -q http://localhost:8080/health || (docker logs companies-test && exit 1)
@@ -76,7 +75,6 @@ companies-health-check:
     - docker compose -f docker-compose.infra.yml down -v
   needs: ["companies-docker-build"]
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
+    - changes:
         - companies-service/**/*
 

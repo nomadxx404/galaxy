@@ -1,0 +1,13 @@
+services:
+  bff-service:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: bff-service
+      env_file:
+        - .env
+      environment:
+        - GIN_MODE=release
+      restart: unless-stopped
+      networks:
+        - galaxy-net
