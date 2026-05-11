@@ -13,7 +13,6 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet publish "auth-service.csproj" \
     -c Release \
     -o /app/publish \
-    --no-restore \
     -r linux-x64 \
     --self-contained false \
     -p:PublishReadyToRun=true \

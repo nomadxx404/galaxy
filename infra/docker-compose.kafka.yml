@@ -18,9 +18,3 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
-    networks:
-      - galaxy-net
-
-networks:
-  galaxy-net:
-    name: galaxy_test_net

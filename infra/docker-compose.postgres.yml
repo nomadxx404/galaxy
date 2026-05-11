@@ -4,16 +4,8 @@ services:
     container_name: postgres-${SERVICE_NAME}
     env_file:
       - .env.ci
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 3s
       timeout: 3s
       retries: 10
-    networks:
-      - galaxy-net
-
-networks:
-  galaxy-net:
-    name: galaxy_test_net
