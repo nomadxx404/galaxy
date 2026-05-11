@@ -32,69 +32,60 @@ files-health-check:
   services:
     - name: docker:24.0.5-dind
       alias: docker
+  variables:
+    SERVICE_NAME: "files"
+    COMPONENTS: "postgres kafka minio"
   script:
-    - docker compose -f docker-compose.infra.yml up -d
+    - COMPOSE_FILES=""
+    - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
+    - docker compose $COMPOSE_FILES up -d
+
     - |
-      echo "Waiting for infrastructure to be healthy..."
-      for SVC in postgres-ci redis-ci minio-ci; do
-        echo "Checking $SVC..."
-        for i in $(seq 1 20); do
-          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+      echo "Waiting for $SERVICE_NAME infrastructure to be healthy..."
+      CONTAINERS=$(docker compose $COMPOSE_FILES ps -q)
+      for CID in $CONTAINERS; do
+        NAME=$(docker inspect -f '{{.Name}}' $CID | sed 's/\///')
+        echo "Checking health for $NAME..."
+        for i in $(seq 1 30); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' $CID 2>/dev/null || echo "starting")
           if [ "$STATUS" = "healthy" ]; then
-            echo "SUCCESS: $SVC is ready!"
+            echo "SUCCESS: $NAME is ready!"
             break
           fi
-          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
-          if [ "$STATE" = "exited" ]; then
-            echo "ERROR: $SVC has crashed!"
-            docker logs "$SVC"
+          if [ "$i" -eq 30 ]; then
+            echo "TIMEOUT: $NAME failed to become healthy"
+            docker logs $CID
             exit 1
           fi
-          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
           sleep 2
-          if [ "$i" -eq 20 ]; then
-            echo "TIMEOUT: $SVC failed to become healthy"
-            docker logs "$SVC"
-            exit 1
-          fi
         done
       done
-      echo "Injecting SQL schema..."
-      docker exec -i postgres-ci psql -U test -d test < init.sql
+
+    - echo "Injecting SQL schema..."
+    - docker exec -i postgres-${SERVICE_NAME} psql -U test -d test < init.sql
+
     - docker rm -f files-test || true
-    - |
-      echo "Checking MinIO API connectivity..."
-      for i in $(seq 1 10); do
-        if docker exec postgres-ci nc -z minio-ci 9000; then
-          echo "MinIO API is up and running!"
-          break
-        else
-          echo "Waiting for MinIO API... (attempt $i/10)"
-          sleep 3
-        fi
-        if [ "$i" -eq 10 ]; then
-          echo "ERROR: MinIO API connection failed after 30s"
-          docker logs minio-ci
-          exit 1
-        fi
-      done
     - |
       docker run -d --name files-test \
         --network galaxy_test_net \
-        -e MINIO_ENDPOINT=minio-ci:9000 \
-        -e MINIO_ACCESS_KEY=test \
-        -e MINIO_SECRET_KEY=test123456 \
-        -e MINIO_USE_SSL=false \
-        --env-file files-service/.env.example \
+        --env-file infra/.env.ci \
+        -e POSTGRES_HOST=postgres-${SERVICE_NAME} \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-${SERVICE_NAME}:9092 \
+        -e MINIO_HOST=minio-${SERVICE_NAME} \
+        -e MINIO_PORT=9000 \
       $FILES_IMAGE
-    - sleep 5
-    - docker exec files-test wget --spider -q http://localhost:8080/health || (docker logs files-test && exit 1)
-    - docker rm -f files-test
+
+    - apk add --no-cache curl
+    - sleep 10
+    - docker exec files-test curl -f http://localhost:8080/health || (docker logs files-test && exit 1)
+
   after_script:
     - docker rm -f files-test || true
-    - docker compose -f docker-compose.infra.yml down -v
+    - COMPOSE_FILES=""
+    - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
+    - docker compose $COMPOSE_FILES down -v
   needs: ["files-docker-build"]
   rules:
     - changes:
-        - files-service/**/*
+      - files-service/**/*
 

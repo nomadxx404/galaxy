@@ -1,0 +1,21 @@
+services:
+  minio-ci:
+    image: minio/minio:latest
+    container_name: minio-${SERVICE_NAME}
+    env_file:
+      - .env.ci
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server --console-address ":9001" /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - galaxy-net
+
+networks:
+  galaxy-net:
+    name: galaxy_test_net
