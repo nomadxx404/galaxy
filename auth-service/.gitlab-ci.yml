@@ -33,6 +33,7 @@ auth-health-check:
   variables:
     SERVICE_NAME: "auth"
     COMPONENTS: "postgres redis kafka"
+    COMPOSE_PROJECT_NAME: "galaxy-auth-${CI_JOB_ID}"
   script:
     - COMPOSE_FILES=""
     - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
@@ -65,7 +66,7 @@ auth-health-check:
     - docker rm -f auth-test || true
     - |
       docker run -d --name auth-test \
-        --network galaxy_test_net \
+        --network ${COMPOSE_PROJECT_NAME}_default \
         --env-file infra/.env.ci \
         -e POSTGRES_HOST=postgres-${SERVICE_NAME} \
         -e REDIS_HOST=redis-${SERVICE_NAME} \

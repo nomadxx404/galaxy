@@ -36,6 +36,7 @@ logging-health-check:
   variables:
     SERVICE_NAME: "logging"
     COMPONENTS: "postgres kafka"
+    COMPOSE_PROJECT_NAME: "galaxy-logging-${CI_JOB_ID}"
   script:
     - COMPOSE_FILES=""
     - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
@@ -77,7 +78,7 @@ logging-health-check:
     - docker rm -f logging-test || true
     - |
       docker run -d --name logging-test \
-        --network galaxy_test_net \
+        --network ${COMPOSE_PROJECT_NAME}_default \
         --env-file infra/.env.ci \
         -e POSTGRES_HOST=postgres-${SERVICE_NAME} \
         -e KAFKA_BOOTSTRAP_SERVERS=kafka-${SERVICE_NAME}:9092 \
