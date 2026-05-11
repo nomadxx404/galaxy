@@ -30,49 +30,57 @@ auth-health-check:
   services:
     - name: docker:24.0.5-dind
       alias: docker
+  variables:
+    SERVICE_NAME: "auth"
+    COMPONENTS: "postgres redis kafka"
   script:
-    - docker compose -f docker-compose.infra.yml up -d
+    - COMPOSE_FILES=""
+    - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
+    - docker compose $COMPOSE_FILES up -d
+
     - |
-      echo "Waiting for infrastructure to be healthy..."
-      for SVC in postgres-ci redis-ci; do
-        echo "Checking $SVC..."
-        for i in $(seq 1 20); do
-          STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$SVC" 2>/dev/null || echo "starting")
+      echo "Waiting for $SERVICE_NAME infrastructure to be healthy..."
+      CONTAINERS=$(docker compose $COMPOSE_FILES ps -q)
+      for CID in $CONTAINERS; do
+        NAME=$(docker inspect -f '{{.Name}}' $CID | sed 's/\///')
+        echo "Checking health for $NAME..."
+        for i in $(seq 1 30); do
+          STATUS=$(docker inspect -f '{{.State.Health.Status}}' $CID 2>/dev/null || echo "starting")
           if [ "$STATUS" = "healthy" ]; then
-            echo "SUCCESS: $SVC is ready!"
+            echo "SUCCESS: $NAME is ready!"
             break
           fi
-          STATE=$(docker inspect -f '{{.State.Status}}' "$SVC" 2>/dev/null || echo "not_found")
-          if [ "$STATE" = "exited" ]; then
-            echo "ERROR: $SVC has crashed!"
-            docker logs "$SVC"
+          if [ "$i" -eq 30 ]; then
+            echo "TIMEOUT: $NAME failed to become healthy"
+            docker logs $CID
             exit 1
           fi
-
-          echo "...$SVC status is '$STATUS', waiting 2s (attempt $i/20)"
           sleep 2
-
-          if [ "$i" -eq 20 ]; then
-            echo "TIMEOUT: $SVC failed to become healthy"
-            docker logs "$SVC"
-            exit 1
-          fi
         done
       done
-      echo "Injecting SQL schema..."
-      docker exec -i postgres-ci psql -U test -d test < init.sql
+
+    - echo "Injecting SQL schema..."
+    - docker exec -i postgres-${SERVICE_NAME} psql -U test -d test < init.sql
+
     - docker rm -f auth-test || true
     - |
       docker run -d --name auth-test \
         --network galaxy_test_net \
+        --env-file infra/.env.ci \
+        -e POSTGRES_HOST=postgres-${SERVICE_NAME} \
+        -e REDIS_HOST=redis-${SERVICE_NAME} \
+        -e KAFKA_BOOTSTRAP_SERVERS=kafka-${SERVICE_NAME}:9092 \
         -e ASPNETCORE_ENVIRONMENT=Development \
-        --env-file auth-service/.env.example \
       $AUTH_IMAGE
+
     - sleep 10
     - docker exec auth-test curl -f http://localhost:8080/health || (docker logs auth-test && exit 1)
+
   after_script:
     - docker rm -f auth-test || true
-    - docker compose -f docker-compose.infra.yml down -v
+    - COMPOSE_FILES=""
+    - for c in $COMPONENTS; do COMPOSE_FILES="$COMPOSE_FILES -f infra/docker-compose.$c.yml"; done
+    - docker compose $COMPOSE_FILES down -v
   needs: ["auth-docker-build"]
   rules:
     - changes:

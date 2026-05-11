@@ -1,0 +1,19 @@
+services:
+  redis-ci:
+    image: redis:7-alpine
+    container_name: redis-${SERVICE_NAME}
+    env_file:
+      - .env.ci
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 5s
+      retries: 5
+    networks:
+      - galaxy-net
+
+networks:
+  galaxy-net:
+    name: galaxy_test_net
